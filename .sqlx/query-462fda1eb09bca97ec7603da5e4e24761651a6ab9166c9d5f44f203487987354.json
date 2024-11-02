@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT encrypted_data, nonce, uuid, last_updated\n        FROM shortcuts WHERE uuid = $1 AND user_id = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "encrypted_data",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "nonce",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "uuid",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "last_updated",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "462fda1eb09bca97ec7603da5e4e24761651a6ab9166c9d5f44f203487987354"
+}
