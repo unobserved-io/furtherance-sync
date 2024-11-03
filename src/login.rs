@@ -58,8 +58,6 @@ pub struct LoginForm {
     password: String,
 }
 
-pub const FUR_SECRET_KEY: &[u8] = b"fur-secret-key"; // TODO: Change
-
 pub async fn login(data: web::Data<AppState>, login: web::Json<LoginRequest>) -> impl Responder {
     let user = match sqlx::query!(
         r#"
@@ -107,6 +105,10 @@ pub async fn handle_login_form(
 ) -> impl Responder {
     match verify_user(&data.db, &form.email, &form.password).await {
         Ok(Some(user_id)) => {
+            let secret_key = std::env::var("FUR_SECRET_KEY")
+                .expect("FUR_SECRET_KEY must be set")
+                .into_bytes();
+
             let claims = Claims {
                 sub: user_id,
                 exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
@@ -115,7 +117,7 @@ pub async fn handle_login_form(
             match encode(
                 &Header::default(),
                 &claims,
-                &EncodingKey::from_secret(FUR_SECRET_KEY),
+                &EncodingKey::from_secret(&secret_key),
             ) {
                 Ok(token) => HttpResponse::Found()
                     .append_header((header::LOCATION, "/sync"))
