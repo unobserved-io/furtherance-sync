@@ -349,7 +349,9 @@ pub async fn store_user_token(
         INSERT INTO user_tokens (user_id, refresh_token, device_id_hash)
         VALUES ($1, $2, $3)
         ON CONFLICT (user_id, device_id_hash)
-        DO UPDATE SET refresh_token = $2
+        DO UPDATE SET
+            refresh_token = EXCLUDED.refresh_token,
+            created_at = CURRENT_TIMESTAMP
         "#,
         user_id,
         refresh_token,

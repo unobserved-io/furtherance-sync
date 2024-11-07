@@ -81,10 +81,7 @@ pub async fn login(data: web::Data<AppState>, login: web::Json<LoginRequest>) ->
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
     let refresh_token = auth::generate_refresh_token();
-    let device_id_hash = match bcrypt::hash(&login.device_id, bcrypt::DEFAULT_COST) {
-        Ok(hash) => hash,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
+    let device_id_hash = hash_device_id(&login.device_id);
 
     if let Err(_) = store_user_token(&data.db, user.id, &refresh_token, &device_id_hash).await {
         return HttpResponse::InternalServerError().finish();
@@ -138,4 +135,10 @@ pub async fn handle_login_form(
             .append_header((header::LOCATION, "/login?error=Internal server error"))
             .finish(),
     }
+}
+
+pub fn hash_device_id(device_id: &str) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(device_id.as_bytes());
+    hasher.finalize().to_hex().to_string()
 }

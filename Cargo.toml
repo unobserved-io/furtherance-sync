@@ -10,6 +10,7 @@ argon2 = "0.5"
 askama = "0.12"
 base64 = "0.22"
 bcrypt = "0.15"
+blake3 = "1.5"
 chrono = { version = "0.4", features = ["alloc", "serde"] }
 jsonwebtoken = "9.3"
 rusqlite = { version = "0.32", features = [
