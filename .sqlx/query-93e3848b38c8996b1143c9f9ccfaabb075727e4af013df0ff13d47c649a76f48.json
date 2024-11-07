@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            CREATE TABLE IF NOT EXISTS user_tokens (\n                id SERIAL PRIMARY KEY,\n                user_id INTEGER REFERENCES users(id),\n                refresh_token TEXT NOT NULL UNIQUE,\n                device_id_hash TEXT NOT NULL,\n                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,\n                UNIQUE(user_id, device_id_hash)\n            );",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "93e3848b38c8996b1143c9f9ccfaabb075727e4af013df0ff13d47c649a76f48"
+}

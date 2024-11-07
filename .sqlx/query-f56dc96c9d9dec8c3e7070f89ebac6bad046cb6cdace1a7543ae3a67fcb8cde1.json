@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO users (email, password_hash, encryption_salt)\n        VALUES ($1, $2, $3)\n        RETURNING id\n        ",
+  "query": "\n        INSERT INTO users (email, password_hash)\n        VALUES ($1, $2)\n        RETURNING id\n        ",
   "describe": {
     "columns": [
       {
@@ -12,13 +12,12 @@
     "parameters": {
       "Left": [
         "Varchar",
-        "Varchar",
-        "Bytea"
+        "Varchar"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "82f3c3086cb6c13ba7748e7b54454cf1991751e5dde89c92a46afde1949feb84"
+  "hash": "f56dc96c9d9dec8c3e7070f89ebac6bad046cb6cdace1a7543ae3a67fcb8cde1"
 }

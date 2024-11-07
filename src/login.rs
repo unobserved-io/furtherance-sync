@@ -18,32 +18,26 @@ use std::collections::HashMap;
 
 use actix_web::{http::header, web, HttpResponse, Responder};
 use askama::Template;
-use base64::engine::general_purpose::STANDARD as BASE64;
-use base64::Engine;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{verify_user, AppState};
+use crate::{auth, models::AppState, store_user_token, verify_user};
+
+// use crate::{auth::Claims, verify_user, AppState};
 
 // For client app API
 #[derive(Deserialize)]
 pub struct LoginRequest {
     email: String,
     password: String,
+    device_id: String,
 }
 
 #[derive(Serialize)]
 pub struct LoginResponse {
-    password_hash: String,
-    salt: String,
-}
-
-// For web interface
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: i32,
-    pub exp: usize,
+    access_token: String,
+    refresh_token: String,
 }
 
 #[derive(Template)]
@@ -60,11 +54,7 @@ pub struct LoginForm {
 
 pub async fn login(data: web::Data<AppState>, login: web::Json<LoginRequest>) -> impl Responder {
     let user = match sqlx::query!(
-        r#"
-        SELECT password_hash, encryption_salt
-        FROM users
-        WHERE email = $1
-        "#,
+        "SELECT id, password_hash FROM users WHERE email = $1",
         login.email
     )
     .fetch_optional(&*data.db)
@@ -85,12 +75,25 @@ pub async fn login(data: web::Data<AppState>, login: web::Json<LoginRequest>) ->
         }));
     }
 
-    // Just return hash and salt - no token
-    let response = LoginResponse {
-        password_hash: user.password_hash,
-        salt: BASE64.encode(user.encryption_salt),
+    // Generate tokens
+    let access_token = match auth::generate_access_token(user.id) {
+        Ok(token) => token,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
     };
-    HttpResponse::Ok().json(response)
+    let refresh_token = auth::generate_refresh_token();
+    let device_id_hash = match bcrypt::hash(&login.device_id, bcrypt::DEFAULT_COST) {
+        Ok(hash) => hash,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+
+    if let Err(_) = store_user_token(&data.db, user.id, &refresh_token, &device_id_hash).await {
+        return HttpResponse::InternalServerError().finish();
+    }
+
+    HttpResponse::Ok().json(LoginResponse {
+        access_token,
+        refresh_token,
+    })
 }
 
 pub async fn show_login(query: web::Query<HashMap<String, String>>) -> impl Responder {
@@ -109,7 +112,7 @@ pub async fn handle_login_form(
                 .expect("FUR_SECRET_KEY must be set")
                 .into_bytes();
 
-            let claims = Claims {
+            let claims = auth::Claims {
                 sub: user_id,
                 exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
             };

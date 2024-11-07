@@ -21,7 +21,7 @@ use askama::Template;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::Deserialize;
 
-use crate::{create_user, login::Claims, AppState};
+use crate::{auth::Claims, create_user, AppState};
 
 #[derive(Template)]
 #[template(path = "register.html")]

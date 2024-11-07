@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+mod auth;
 mod database;
 mod login;
 mod models;
 mod register;
 
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use auth::verify_access_token;
 use database::*;
 use login::*;
 use models::{AppState, SyncRequest, SyncResponse};
@@ -30,13 +32,22 @@ use uuid::Uuid;
 async fn handle_sync(
     data: web::Data<AppState>,
     sync_data: web::Json<SyncRequest>,
+    req: HttpRequest,
 ) -> impl Responder {
-    let user_id =
-        match verify_user_hash(&*data.db, &sync_data.email, &sync_data.password_hash).await {
-            Ok(Some(id)) => id,
-            Ok(None) => return HttpResponse::Unauthorized().finish(),
-            Err(_) => return HttpResponse::InternalServerError().finish(),
-        };
+    // Extract token from Authorization header
+    let auth_header = match req.headers().get("Authorization") {
+        Some(header) => match header.to_str() {
+            Ok(auth_str) => auth_str.replace("Bearer ", ""),
+            Err(_) => return HttpResponse::Unauthorized().finish(),
+        },
+        None => return HttpResponse::Unauthorized().finish(),
+    };
+
+    // Verify token and get user_id
+    let user_id = match verify_access_token(&auth_header) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::Unauthorized().finish(),
+    };
 
     let server_timestamp = chrono::Utc::now().timestamp();
 
@@ -44,6 +55,7 @@ async fn handle_sync(
     let mut shortcut_ids_updated: Vec<Uuid> = Vec::new();
 
     println!("{} Client tasks received", sync_data.tasks.len());
+    println!("{} Client shortcuts received", sync_data.shortcuts.len());
 
     for encrypted_task in &sync_data.tasks {
         match get_task_by_uuid(&data.db, &encrypted_task.uuid, user_id).await {

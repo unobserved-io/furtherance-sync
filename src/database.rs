@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use rand::{thread_rng, RngCore};
 use sqlx::postgres::PgPool;
 use std::error::Error;
 use uuid::Uuid;
@@ -32,9 +31,23 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             id SERIAL PRIMARY KEY,
             email VARCHAR(255) UNIQUE NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
-            encryption_salt BYTEA NOT NULL,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Create user tokens table
+    sqlx::query!(
+        r#"
+            CREATE TABLE IF NOT EXISTS user_tokens (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                refresh_token TEXT NOT NULL UNIQUE,
+                device_id_hash TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, device_id_hash)
+            );"#,
     )
     .execute(&pool)
     .await?;
@@ -282,17 +295,15 @@ pub async fn create_user(
     use bcrypt::{hash, DEFAULT_COST};
 
     let password_hash = hash(password.as_bytes(), DEFAULT_COST)?;
-    let encryption_salt = generate_salt().to_vec();
 
     let result = sqlx::query!(
         r#"
-        INSERT INTO users (email, password_hash, encryption_salt)
-        VALUES ($1, $2, $3)
+        INSERT INTO users (email, password_hash)
+        VALUES ($1, $2)
         RETURNING id
         "#,
         email,
         password_hash,
-        encryption_salt,
     )
     .fetch_one(pool)
     .await?;
@@ -327,28 +338,25 @@ pub async fn verify_user(
     Ok(None)
 }
 
-pub async fn verify_user_hash(
+pub async fn store_user_token(
     pool: &PgPool,
-    email: &str,
-    password_hash: &str,
-) -> Result<Option<i32>, Box<dyn Error>> {
-    let result = sqlx::query!(
+    user_id: i32,
+    refresh_token: &str,
+    device_id_hash: &str,
+) -> Result<(), Box<dyn Error>> {
+    sqlx::query!(
         r#"
-        SELECT id, password_hash
-        FROM users
-        WHERE email = $1 AND password_hash = $2
+        INSERT INTO user_tokens (user_id, refresh_token, device_id_hash)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, device_id_hash)
+        DO UPDATE SET refresh_token = $2
         "#,
-        email,
-        password_hash
+        user_id,
+        refresh_token,
+        device_id_hash
     )
-    .fetch_optional(pool)
+    .execute(&*pool)
     .await?;
 
-    Ok(result.map(|r| r.id))
-}
-
-pub fn generate_salt() -> [u8; 16] {
-    let mut salt_bytes = [0u8; 16];
-    thread_rng().fill_bytes(&mut salt_bytes);
-    salt_bytes
+    Ok(())
 }

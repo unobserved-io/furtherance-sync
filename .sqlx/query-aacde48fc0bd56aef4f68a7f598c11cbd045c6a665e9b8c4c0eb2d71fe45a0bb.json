@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO user_tokens (user_id, refresh_token, device_id_hash)\n        VALUES ($1, $2, $3)\n        ON CONFLICT (user_id, device_id_hash)\n        DO UPDATE SET refresh_token = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "aacde48fc0bd56aef4f68a7f598c11cbd045c6a665e9b8c4c0eb2d71fe45a0bb"
+}

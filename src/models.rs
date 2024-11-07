@@ -42,8 +42,6 @@ pub struct AppState {
 
 #[derive(Deserialize)]
 pub struct SyncRequest {
-    pub email: String,
-    pub password_hash: String,
     pub last_sync: i64,
     pub tasks: Vec<EncryptedTask>,
     pub shortcuts: Vec<EncryptedShortcut>,
