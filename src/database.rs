@@ -31,6 +31,8 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             id SERIAL PRIMARY KEY,
             email VARCHAR(255) UNIQUE NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
+            encryption_key_hash VARCHAR(255),
+            encryption_key_version INTEGER NOT NULL DEFAULT 0,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );"#,
     )
@@ -361,4 +363,58 @@ pub async fn store_user_token(
     .await?;
 
     Ok(())
+}
+
+pub async fn fetch_user_credentials(
+    pool: &PgPool,
+    email: &str,
+) -> Result<Option<(i32, String)>, sqlx::Error> {
+    let record = sqlx::query!(
+            r#"
+            SELECT id, encryption_key_hash
+            FROM users
+            WHERE email = $1
+            "#,
+            email
+        )
+    .fetch_optional(pool)
+    .await
+    .map(|row| row.map(|r| (r.id, r.encryption_key_hash)))
+}
+
+pub async fn fetch_encryption_key(
+    pool: &PgPool,
+    user_id: i32,
+) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query!(
+        r#"
+        SELECT encryption_key_hash
+        FROM users
+        WHERE id = $1
+        "#,
+        user_id
+    )
+    .fetch_optional(pool)
+    .await
+    .map(|row| row.and_then(|r| r.encryption_key_hash))
+}
+
+pub async fn update_encryption_key(
+    pool: &PgPool,
+    user_id: i32,
+    key_hash: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE users
+        SET encryption_key_hash = $1,
+            encryption_key_version = encryption_key_version + 1
+        WHERE id = $2
+        "#,
+        key_hash,
+        user_id
+    )
+    .execute(pool)
+    .await
+    .map(|_| ())
 }

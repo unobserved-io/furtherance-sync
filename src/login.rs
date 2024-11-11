@@ -16,13 +16,12 @@
 
 use std::collections::HashMap;
 
-use actix_web::{http::header, web, HttpResponse, Responder};
+use actix_web::{cookie::Cookie, http::header, web, HttpResponse, Responder};
 use askama::Template;
-use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{auth, models::AppState, store_user_token, verify_user};
+use crate::{auth, database, models::AppState, store_user_token, verify_user};
 
 // use crate::{auth::Claims, verify_user, AppState};
 
@@ -30,7 +29,7 @@ use crate::{auth, models::AppState, store_user_token, verify_user};
 #[derive(Deserialize)]
 pub struct LoginRequest {
     email: String,
-    password: String,
+    encryption_key: String,
     device_id: String,
 }
 
@@ -53,14 +52,8 @@ pub struct LoginForm {
 }
 
 pub async fn login(data: web::Data<AppState>, login: web::Json<LoginRequest>) -> impl Responder {
-    let user = match sqlx::query!(
-        "SELECT id, password_hash FROM users WHERE email = $1",
-        login.email
-    )
-    .fetch_optional(&*data.db)
-    .await
-    {
-        Ok(Some(user)) => user,
+    let (user_id, key_hash) = match database::fetch_user_credentials(&data.db, &login.email).await {
+        Ok(Some(credentials)) => credentials,
         Ok(None) => {
             return HttpResponse::Unauthorized().json(json!({
                 "error": "Invalid email or password"
@@ -69,21 +62,21 @@ pub async fn login(data: web::Data<AppState>, login: web::Json<LoginRequest>) ->
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
 
-    if !bcrypt::verify(&login.password, &user.password_hash).unwrap_or(false) {
+    if !bcrypt::verify(&login.encryption_key, &key_hash).unwrap_or(false) {
         return HttpResponse::Unauthorized().json(json!({
-            "error": "Invalid email or password"
+            "error": "Invalid email or encryption key"
         }));
     }
 
     // Generate tokens
-    let access_token = match auth::generate_access_token(user.id) {
+    let access_token = match auth::generate_access_token(user_id) {
         Ok(token) => token,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
     let refresh_token = auth::generate_refresh_token();
     let device_id_hash = hash_device_id(&login.device_id);
 
-    if let Err(_) = store_user_token(&data.db, user.id, &refresh_token, &device_id_hash).await {
+    if let Err(_) = store_user_token(&data.db, user_id, &refresh_token, &device_id_hash).await {
         return HttpResponse::InternalServerError().finish();
     }
 
@@ -105,28 +98,16 @@ pub async fn handle_login_form(
 ) -> impl Responder {
     match verify_user(&data.db, &form.email, &form.password).await {
         Ok(Some(user_id)) => {
-            let secret_key = std::env::var("FUR_SECRET_KEY")
-                .expect("FUR_SECRET_KEY must be set")
-                .into_bytes();
-
-            let claims = auth::Claims {
-                sub: user_id,
-                exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
-            };
-
-            match encode(
-                &Header::default(),
-                &claims,
-                &EncodingKey::from_secret(&secret_key),
-            ) {
-                Ok(token) => HttpResponse::Found()
-                    .append_header((header::LOCATION, "/sync"))
-                    .append_header((header::SET_COOKIE, format!("auth={}", token)))
-                    .finish(),
-                Err(_) => HttpResponse::Found()
-                    .append_header((header::LOCATION, "/login?error=Internal server error"))
-                    .finish(),
-            }
+            // Create session cookie
+            HttpResponse::Found()
+                .cookie(
+                    Cookie::build("session", user_id.to_string())
+                        .http_only(true)
+                        .secure(true)
+                        .finish(),
+                )
+                .append_header((header::LOCATION, "/setup-encryption"))
+                .finish()
         }
         Ok(None) => HttpResponse::Found()
             .append_header((header::LOCATION, "/login?error=Invalid email or password"))

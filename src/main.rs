@@ -16,122 +16,20 @@
 
 mod auth;
 mod database;
+mod encryption;
 mod login;
 mod models;
 mod register;
+mod sync;
 
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
-use auth::verify_access_token;
+use actix_web::{web, App, HttpServer};
 use database::*;
+use encryption::{handle_key_setup, show_encryption_setup};
 use login::*;
-use models::{AppState, SyncRequest, SyncResponse};
+use models::AppState;
 use register::*;
 use std::sync::Arc;
-use uuid::Uuid;
-
-async fn handle_sync(
-    data: web::Data<AppState>,
-    sync_data: web::Json<SyncRequest>,
-    req: HttpRequest,
-) -> impl Responder {
-    // Extract token from Authorization header
-    let auth_header = match req.headers().get("Authorization") {
-        Some(header) => match header.to_str() {
-            Ok(auth_str) => auth_str.replace("Bearer ", ""),
-            Err(_) => return HttpResponse::Unauthorized().finish(),
-        },
-        None => return HttpResponse::Unauthorized().finish(),
-    };
-
-    // Verify token and get user_id
-    let user_id = match verify_access_token(&auth_header) {
-        Ok(id) => id,
-        Err(_) => return HttpResponse::Unauthorized().finish(),
-    };
-
-    let server_timestamp = chrono::Utc::now().timestamp();
-
-    let mut task_ids_updated: Vec<Uuid> = Vec::new();
-    let mut shortcut_ids_updated: Vec<Uuid> = Vec::new();
-
-    println!("{} Client tasks received", sync_data.tasks.len());
-    println!("{} Client shortcuts received", sync_data.shortcuts.len());
-
-    for encrypted_task in &sync_data.tasks {
-        match get_task_by_uuid(&data.db, &encrypted_task.uuid, user_id).await {
-            Ok(Some(server_task)) => {
-                // Task exists - update it if it changed
-                if encrypted_task.last_updated > server_task.last_updated {
-                    match update_task(&data.db, &encrypted_task, user_id).await {
-                        Ok(_) => task_ids_updated.push(encrypted_task.uuid),
-                        Err(e) => eprintln!("Error updating task: {}", e),
-                    }
-                } else if encrypted_task.last_updated == server_task.last_updated {
-                    // This task is up to date and does not need to be sent back to client
-                    task_ids_updated.push(encrypted_task.uuid);
-                }
-            }
-            Ok(None) => {
-                // Task does not exist - insert it
-                match insert_task(&data.db, &encrypted_task, user_id).await {
-                    Ok(_) => task_ids_updated.push(encrypted_task.uuid),
-                    Err(e) => eprintln!("Error inserting new task: {}", e),
-                }
-            }
-            Err(e) => eprintln!("Error checking for existing task: {}", e),
-        }
-    }
-
-    for encrypted_shortcut in &sync_data.shortcuts {
-        match get_shortcut_by_uuid(&data.db, &encrypted_shortcut.uuid, user_id).await {
-            Ok(Some(server_shortcut)) => {
-                // Shortcut exists - update it if it changed
-                if encrypted_shortcut.last_updated > server_shortcut.last_updated {
-                    match update_shortcut(&data.db, &encrypted_shortcut, user_id).await {
-                        Ok(_) => shortcut_ids_updated.push(encrypted_shortcut.uuid),
-                        Err(e) => eprintln!("Error updating shortcut: {}", e),
-                    }
-                } else if encrypted_shortcut.last_updated == server_shortcut.last_updated {
-                    // This shortcut is up to date and does not need to be sent back to client
-                    shortcut_ids_updated.push(encrypted_shortcut.uuid);
-                }
-            }
-            Ok(None) => {
-                // Shortcut does not exist - insert it
-                match insert_shortcut(&data.db, &encrypted_shortcut, user_id).await {
-                    Ok(_) => shortcut_ids_updated.push(encrypted_shortcut.uuid),
-                    Err(e) => eprintln!("Error inserting new task: {}", e),
-                }
-            }
-            Err(e) => eprintln!("Error checking for existing task: {}", e),
-        }
-    }
-
-    // Fetch new or updated data since last_sync, but remove already updated data
-    let new_tasks = fetch_new_tasks(&data.db, sync_data.last_sync, user_id)
-        .await
-        .unwrap_or_default();
-    let new_shortcuts = fetch_new_shortcuts(&data.db, sync_data.last_sync, user_id)
-        .await
-        .unwrap_or_default();
-
-    let response = SyncResponse {
-        server_timestamp,
-        tasks: new_tasks
-            .into_iter()
-            .filter(|task| !task_ids_updated.contains(&task.uuid))
-            .collect(),
-        shortcuts: new_shortcuts
-            .into_iter()
-            .filter(|shortcut| !shortcut_ids_updated.contains(&shortcut.uuid))
-            .collect(),
-    };
-
-    println!("{} tasks sent", response.tasks.len());
-    println!("{} shortcuts sent", response.shortcuts.len());
-
-    HttpResponse::Ok().json(response)
-}
+use sync::handle_sync;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -147,6 +45,8 @@ async fn main() -> std::io::Result<()> {
             .route("/login", web::post().to(handle_login_form))
             .route("/register", web::get().to(show_register))
             .route("/register", web::post().to(handle_register_form))
+            .route("/encryption", web::get().to(show_encryption_setup))
+            .route("/encryption", web::post().to(handle_key_setup))
             .route("/sync", web::post().to(handle_sync))
     })
     .bind("127.0.0.1:8662")?
