@@ -29,7 +29,7 @@ use login::*;
 use models::AppState;
 use register::*;
 use std::sync::Arc;
-use sync::handle_sync;
+use sync::{get_orphaned_items, handle_sync};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -48,8 +48,9 @@ async fn main() -> std::io::Result<()> {
             .route("/encryption", web::get().to(show_encryption_setup))
             .route("/sync", web::post().to(handle_sync))
             // API Routes
-            .route("/api/login", web::post().to(login))
             .route("/api/encryption/generate", web::post().to(generate_key))
+            .route("/api/login", web::post().to(login))
+            .route("/api/orphaned", web::get().to(get_orphaned_items))
     })
     .bind("127.0.0.1:8662")?
     .run()

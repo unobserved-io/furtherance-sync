@@ -20,6 +20,51 @@ use crate::{
     models::{AppState, SyncRequest, SyncResponse},
 };
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct OrphanedItemsResponse {
+    task_uids: Vec<String>,
+    shortcut_uids: Vec<String>,
+}
+
+pub async fn get_orphaned_items(data: web::Data<AppState>, req: HttpRequest) -> impl Responder {
+    // Extract and verify token (same as in handle_sync)
+    let auth_header = match req.headers().get("Authorization") {
+        Some(header) => match header.to_str() {
+            Ok(auth_str) => auth_str.replace("Bearer ", ""),
+            Err(_) => return HttpResponse::Unauthorized().finish(),
+        },
+        None => return HttpResponse::Unauthorized().finish(),
+    };
+
+    let user_id = match verify_access_token(&auth_header) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::Unauthorized().finish(),
+    };
+
+    // Fetch orphaned items from database
+    let task_uids = match fetch_orphaned_task_uids(&data.db, user_id).await {
+        Ok(uids) => uids,
+        Err(e) => {
+            eprintln!("Error fetching orphaned task UIDs: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    let shortcut_uids = match fetch_orphaned_shortcut_uids(&data.db, user_id).await {
+        Ok(uids) => uids,
+        Err(e) => {
+            eprintln!("Error fetching orphaned shortcut UIDs: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    HttpResponse::Ok().json(OrphanedItemsResponse {
+        task_uids,
+        shortcut_uids,
+    })
+}
 
 pub async fn handle_sync(
     data: web::Data<AppState>,

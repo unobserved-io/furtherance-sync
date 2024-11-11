@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     nonce TEXT NOT NULL,
     uid TEXT NOT NULL,
     last_updated BIGINT,
+    is_orphaned BOOL NOT NULL DEFAULT FALSE,
     user_id INTEGER REFERENCES users(id),
     UNIQUE(user_id, uid),
     PRIMARY KEY (user_id, uid)
@@ -31,6 +32,7 @@ CREATE TABLE IF NOT EXISTS shortcuts (
     nonce TEXT NOT NULL,
     uid TEXT NOT NULL,
     last_updated BIGINT,
+    is_orphaned BOOL NOT NULL DEFAULT FALSE,
     user_id INTEGER REFERENCES users(id),
     UNIQUE(user_id, uid),
     PRIMARY KEY (user_id, uid)

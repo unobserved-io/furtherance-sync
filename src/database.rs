@@ -58,6 +58,7 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             nonce TEXT NOT NULL,
             uid TEXT NOT NULL,
             last_updated BIGINT,
+            is_orphaned BOOL NOT NULL DEFAULT FALSE,
             user_id INTEGER REFERENCES users(id),
             UNIQUE(user_id, uid),
             PRIMARY KEY (user_id, uid)
@@ -73,6 +74,7 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             nonce TEXT NOT NULL,
             uid TEXT NOT NULL,
             last_updated BIGINT,
+            is_orphaned BOOL NOT NULL DEFAULT FALSE,
             user_id INTEGER REFERENCES users(id),
             UNIQUE(user_id, uid),
             PRIMARY KEY (user_id, uid)
@@ -186,7 +188,8 @@ pub async fn update_task(
         UPDATE tasks SET
             encrypted_data = $1,
             nonce = $2,
-            last_updated = $3
+            last_updated = $3,
+            is_orphaned = false
         WHERE uid = $4 AND user_id = $5
         "#,
         task.encrypted_data,
@@ -211,7 +214,8 @@ pub async fn update_shortcut(
         UPDATE shortcuts SET
             encrypted_data = $1,
             nonce = $2,
-            last_updated = $3
+            last_updated = $3,
+            is_orphaned = false
         WHERE uid = $4 AND user_id = $5
         "#,
         shortcut.encrypted_data,
@@ -282,6 +286,42 @@ pub async fn fetch_new_shortcuts(
             last_updated: r.last_updated.unwrap_or_default(),
         })
         .collect())
+}
+
+pub async fn fetch_orphaned_task_uids(
+    pool: &PgPool,
+    user_id: i32,
+) -> Result<Vec<String>, Box<dyn Error>> {
+    let records = sqlx::query!(
+        r#"
+        SELECT uid
+        FROM tasks
+        WHERE user_id = $1 AND is_orphaned = true
+        "#,
+        user_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(records.into_iter().map(|r| r.uid).collect())
+}
+
+pub async fn fetch_orphaned_shortcut_uids(
+    pool: &PgPool,
+    user_id: i32,
+) -> Result<Vec<String>, Box<dyn Error>> {
+    let records = sqlx::query!(
+        r#"
+        SELECT uid
+        FROM shortcuts
+        WHERE user_id = $1 AND is_orphaned = true
+        "#,
+        user_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(records.into_iter().map(|r| r.uid).collect())
 }
 
 pub async fn create_user(
@@ -402,15 +442,29 @@ pub async fn update_encryption_key(
 ) -> Result<(), sqlx::Error> {
     let mut tx = pool.begin().await?;
 
-    // Delete existing tasks
-    sqlx::query!("DELETE FROM tasks WHERE user_id = $1", user_id)
-        .execute(&mut *tx)
-        .await?;
+    // Mark existing tasks as orphaned
+    sqlx::query!(
+        r#"
+            UPDATE tasks
+            SET is_orphaned = true
+            WHERE user_id = $1
+            "#,
+        user_id
+    )
+    .execute(&mut *tx)
+    .await?;
 
-    // Delete existing shortcuts
-    sqlx::query!("DELETE FROM shortcuts WHERE user_id = $1", user_id)
-        .execute(&mut *tx)
-        .await?;
+    // Mark existing shortcuts as orphaned
+    sqlx::query!(
+        r#"
+            UPDATE shortcuts
+            SET is_orphaned = true
+            WHERE user_id = $1
+            "#,
+        user_id
+    )
+    .execute(&mut *tx)
+    .await?;
 
     // Update encryption key
     sqlx::query!(
