@@ -16,7 +16,6 @@
 
 use sqlx::postgres::PgPool;
 use std::error::Error;
-use uuid::Uuid;
 
 use crate::models::{EncryptedShortcut, EncryptedTask};
 
@@ -24,7 +23,6 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = PgPool::connect(&database_url).await?;
 
-    // Create users table
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS users (
@@ -39,7 +37,6 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     .execute(&pool)
     .await?;
 
-    // Create user tokens table
     sqlx::query!(
         r#"
             CREATE TABLE IF NOT EXISTS user_tokens (
@@ -54,33 +51,31 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     .execute(&pool)
     .await?;
 
-    // Create tasks table
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS tasks (
             encrypted_data TEXT NOT NULL,
             nonce TEXT NOT NULL,
-            uuid UUID DEFAULT gen_random_uuid(),
+            uid TEXT NOT NULL,
             last_updated BIGINT,
             user_id INTEGER REFERENCES users(id),
-            UNIQUE(user_id, uuid),
-            PRIMARY KEY (user_id, uuid)
+            UNIQUE(user_id, uid),
+            PRIMARY KEY (user_id, uid)
         );"#,
     )
     .execute(&pool)
     .await?;
 
-    // Create shortcuts table
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS shortcuts (
             encrypted_data TEXT NOT NULL,
             nonce TEXT NOT NULL,
-            uuid UUID DEFAULT gen_random_uuid(),
+            uid TEXT NOT NULL,
             last_updated BIGINT,
             user_id INTEGER REFERENCES users(id),
-            UNIQUE(user_id, uuid),
-            PRIMARY KEY (user_id, uuid)
+            UNIQUE(user_id, uid),
+            PRIMARY KEY (user_id, uid)
         );"#,
     )
     .execute(&pool)
@@ -96,12 +91,12 @@ pub async fn insert_task(
 ) -> Result<(), Box<dyn Error>> {
     sqlx::query!(
         r#"
-            INSERT INTO tasks (encrypted_data, nonce, uuid, last_updated, user_id)
+            INSERT INTO tasks (encrypted_data, nonce, uid, last_updated, user_id)
             VALUES ($1, $2, $3, $4, $5)
             "#,
         encrypted_task.encrypted_data,
         encrypted_task.nonce,
-        encrypted_task.uuid,
+        encrypted_task.uid,
         encrypted_task.last_updated,
         user_id
     )
@@ -118,12 +113,12 @@ pub async fn insert_shortcut(
 ) -> Result<(), Box<dyn Error>> {
     sqlx::query!(
         r#"
-            INSERT INTO shortcuts (encrypted_data, nonce, uuid, last_updated, user_id)
+            INSERT INTO shortcuts (encrypted_data, nonce, uid, last_updated, user_id)
             VALUES ($1, $2, $3, $4, $5)
             "#,
         encrypted_shortcut.encrypted_data,
         encrypted_shortcut.nonce,
-        encrypted_shortcut.uuid,
+        encrypted_shortcut.uid,
         encrypted_shortcut.last_updated,
         user_id
     )
@@ -133,17 +128,17 @@ pub async fn insert_shortcut(
     Ok(())
 }
 
-pub async fn get_task_by_uuid(
+pub async fn get_task_by_uid(
     pool: &PgPool,
-    uuid: &Uuid,
+    uid: &str,
     user_id: i32,
 ) -> Result<Option<EncryptedTask>, Box<dyn Error>> {
     let record = sqlx::query!(
         r#"
-        SELECT encrypted_data, nonce, uuid, last_updated
-        FROM tasks WHERE uuid = $1 AND user_id = $2
+        SELECT encrypted_data, nonce, uid, last_updated
+        FROM tasks WHERE uid = $1 AND user_id = $2
         "#,
-        uuid,
+        uid,
         user_id
     )
     .fetch_optional(pool)
@@ -152,22 +147,22 @@ pub async fn get_task_by_uuid(
     Ok(record.map(|r| EncryptedTask {
         encrypted_data: r.encrypted_data,
         nonce: r.nonce,
-        uuid: r.uuid,
+        uid: r.uid,
         last_updated: r.last_updated.unwrap_or_default(),
     }))
 }
 
-pub async fn get_shortcut_by_uuid(
+pub async fn get_shortcut_by_uid(
     pool: &PgPool,
-    uuid: &Uuid,
+    uid: &str,
     user_id: i32,
 ) -> Result<Option<EncryptedShortcut>, Box<dyn Error>> {
     let record = sqlx::query!(
         r#"
-        SELECT encrypted_data, nonce, uuid, last_updated
-        FROM shortcuts WHERE uuid = $1 AND user_id = $2
+        SELECT encrypted_data, nonce, uid, last_updated
+        FROM shortcuts WHERE uid = $1 AND user_id = $2
         "#,
-        uuid,
+        uid,
         user_id
     )
     .fetch_optional(pool)
@@ -176,7 +171,7 @@ pub async fn get_shortcut_by_uuid(
     Ok(record.map(|r| EncryptedShortcut {
         encrypted_data: r.encrypted_data,
         nonce: r.nonce,
-        uuid: r.uuid,
+        uid: r.uid,
         last_updated: r.last_updated.unwrap_or_default(),
     }))
 }
@@ -192,12 +187,12 @@ pub async fn update_task(
             encrypted_data = $1,
             nonce = $2,
             last_updated = $3
-        WHERE uuid = $4 AND user_id = $5
+        WHERE uid = $4 AND user_id = $5
         "#,
         task.encrypted_data,
         task.nonce,
         task.last_updated,
-        task.uuid,
+        task.uid,
         user_id
     )
     .execute(pool)
@@ -217,12 +212,12 @@ pub async fn update_shortcut(
             encrypted_data = $1,
             nonce = $2,
             last_updated = $3
-        WHERE uuid = $4 AND user_id = $5
+        WHERE uid = $4 AND user_id = $5
         "#,
         shortcut.encrypted_data,
         shortcut.nonce,
         shortcut.last_updated,
-        shortcut.uuid,
+        shortcut.uid,
         user_id
     )
     .execute(pool)
@@ -238,7 +233,7 @@ pub async fn fetch_new_tasks(
 ) -> Result<Vec<EncryptedTask>, Box<dyn Error>> {
     let records = sqlx::query!(
         r#"
-        SELECT encrypted_data, nonce, uuid, last_updated
+        SELECT encrypted_data, nonce, uid, last_updated
         FROM tasks
         WHERE user_id = $1 AND last_updated >= $2
         ORDER BY last_updated ASC
@@ -254,7 +249,7 @@ pub async fn fetch_new_tasks(
         .map(|r| EncryptedTask {
             encrypted_data: r.encrypted_data,
             nonce: r.nonce,
-            uuid: r.uuid,
+            uid: r.uid,
             last_updated: r.last_updated.unwrap_or_default(),
         })
         .collect())
@@ -267,7 +262,7 @@ pub async fn fetch_new_shortcuts(
 ) -> Result<Vec<EncryptedShortcut>, Box<dyn Error>> {
     let records = sqlx::query!(
         r#"
-        SELECT encrypted_data, nonce, uuid, last_updated
+        SELECT encrypted_data, nonce, uid, last_updated
         FROM shortcuts
         WHERE user_id = $1 AND last_updated >= $2
         ORDER BY last_updated ASC
@@ -283,7 +278,7 @@ pub async fn fetch_new_shortcuts(
         .map(|r| EncryptedShortcut {
             encrypted_data: r.encrypted_data,
             nonce: r.nonce,
-            uuid: r.uuid,
+            uid: r.uid,
             last_updated: r.last_updated.unwrap_or_default(),
         })
         .collect())

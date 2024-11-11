@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE shortcuts SET\n            encrypted_data = $1,\n            nonce = $2,\n            last_updated = $3\n        WHERE uid = $4 AND user_id = $5\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "45de7a3b451800dfdea79782deb557cc1eb42c178f4f680b99f70214b6e7fd1d"
+}

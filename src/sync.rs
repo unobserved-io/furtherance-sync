@@ -20,7 +20,6 @@ use crate::{
     models::{AppState, SyncRequest, SyncResponse},
 };
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use uuid::Uuid;
 
 pub async fn handle_sync(
     data: web::Data<AppState>,
@@ -44,31 +43,31 @@ pub async fn handle_sync(
 
     let server_timestamp = chrono::Utc::now().timestamp();
 
-    let mut task_ids_updated: Vec<Uuid> = Vec::new();
-    let mut shortcut_ids_updated: Vec<Uuid> = Vec::new();
+    let mut task_ids_updated: Vec<&str> = Vec::new();
+    let mut shortcut_ids_updated: Vec<&str> = Vec::new();
 
     // TODO: Remove
     println!("{} Client tasks received", sync_data.tasks.len());
     println!("{} Client shortcuts received", sync_data.shortcuts.len());
 
     for encrypted_task in &sync_data.tasks {
-        match get_task_by_uuid(&data.db, &encrypted_task.uuid, user_id).await {
+        match get_task_by_uid(&data.db, &encrypted_task.uid, user_id).await {
             Ok(Some(server_task)) => {
                 // Task exists - update it if it changed
                 if encrypted_task.last_updated > server_task.last_updated {
                     match update_task(&data.db, &encrypted_task, user_id).await {
-                        Ok(_) => task_ids_updated.push(encrypted_task.uuid),
+                        Ok(_) => task_ids_updated.push(&encrypted_task.uid),
                         Err(e) => eprintln!("Error updating task: {}", e),
                     }
                 } else if encrypted_task.last_updated == server_task.last_updated {
                     // This task is up to date and does not need to be sent back to client
-                    task_ids_updated.push(encrypted_task.uuid);
+                    task_ids_updated.push(&encrypted_task.uid);
                 }
             }
             Ok(None) => {
                 // Task does not exist - insert it
                 match insert_task(&data.db, &encrypted_task, user_id).await {
-                    Ok(_) => task_ids_updated.push(encrypted_task.uuid),
+                    Ok(_) => task_ids_updated.push(&encrypted_task.uid),
                     Err(e) => eprintln!("Error inserting new task: {}", e),
                 }
             }
@@ -77,23 +76,23 @@ pub async fn handle_sync(
     }
 
     for encrypted_shortcut in &sync_data.shortcuts {
-        match get_shortcut_by_uuid(&data.db, &encrypted_shortcut.uuid, user_id).await {
+        match get_shortcut_by_uid(&data.db, &encrypted_shortcut.uid, user_id).await {
             Ok(Some(server_shortcut)) => {
                 // Shortcut exists - update it if it changed
                 if encrypted_shortcut.last_updated > server_shortcut.last_updated {
                     match update_shortcut(&data.db, &encrypted_shortcut, user_id).await {
-                        Ok(_) => shortcut_ids_updated.push(encrypted_shortcut.uuid),
+                        Ok(_) => shortcut_ids_updated.push(&encrypted_shortcut.uid),
                         Err(e) => eprintln!("Error updating shortcut: {}", e),
                     }
                 } else if encrypted_shortcut.last_updated == server_shortcut.last_updated {
                     // This shortcut is up to date and does not need to be sent back to client
-                    shortcut_ids_updated.push(encrypted_shortcut.uuid);
+                    shortcut_ids_updated.push(&encrypted_shortcut.uid);
                 }
             }
             Ok(None) => {
                 // Shortcut does not exist - insert it
                 match insert_shortcut(&data.db, &encrypted_shortcut, user_id).await {
-                    Ok(_) => shortcut_ids_updated.push(encrypted_shortcut.uuid),
+                    Ok(_) => shortcut_ids_updated.push(&encrypted_shortcut.uid),
                     Err(e) => eprintln!("Error inserting new task: {}", e),
                 }
             }
@@ -113,11 +112,11 @@ pub async fn handle_sync(
         server_timestamp,
         tasks: new_tasks
             .into_iter()
-            .filter(|task| !task_ids_updated.contains(&task.uuid))
+            .filter(|task| !task_ids_updated.contains(&task.uid.as_str()))
             .collect(),
         shortcuts: new_shortcuts
             .into_iter()
-            .filter(|shortcut| !shortcut_ids_updated.contains(&shortcut.uuid))
+            .filter(|shortcut| !shortcut_ids_updated.contains(&shortcut.uid.as_str()))
             .collect(),
     };
 

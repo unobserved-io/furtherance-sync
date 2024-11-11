@@ -18,21 +18,20 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use uuid::Uuid;
-
-#[derive(Serialize, Deserialize)]
-pub struct EncryptedShortcut {
-    pub encrypted_data: String,
-    pub nonce: String,
-    pub uuid: Uuid,
-    pub last_updated: i64,
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct EncryptedTask {
     pub encrypted_data: String,
     pub nonce: String,
-    pub uuid: Uuid,
+    pub uid: String,
+    pub last_updated: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EncryptedShortcut {
+    pub encrypted_data: String,
+    pub nonce: String,
+    pub uid: String,
     pub last_updated: i64,
 }
 

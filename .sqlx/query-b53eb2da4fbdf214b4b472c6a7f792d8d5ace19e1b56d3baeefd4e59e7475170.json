@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT encrypted_data, nonce, uuid, last_updated\n        FROM tasks WHERE uuid = $1 AND user_id = $2\n        ",
+  "query": "\n        SELECT encrypted_data, nonce, uid, last_updated\n        FROM tasks\n        WHERE user_id = $1 AND last_updated >= $2\n        ORDER BY last_updated ASC\n        ",
   "describe": {
     "columns": [
       {
@@ -15,8 +15,8 @@
       },
       {
         "ordinal": 2,
-        "name": "uuid",
-        "type_info": "Uuid"
+        "name": "uid",
+        "type_info": "Text"
       },
       {
         "ordinal": 3,
@@ -26,8 +26,8 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Int4"
+        "Int4",
+        "Int8"
       ]
     },
     "nullable": [
@@ -37,5 +37,5 @@
       true
     ]
   },
-  "hash": "a5e57db08ac20f39a7c89fb744cd066cfd179c136ca14e641dc9823679281ccb"
+  "hash": "b53eb2da4fbdf214b4b472c6a7f792d8d5ace19e1b56d3baeefd4e59e7475170"
 }

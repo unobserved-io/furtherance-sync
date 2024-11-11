@@ -19,19 +19,19 @@ CREATE TABLE IF NOT EXISTS user_tokens (
 CREATE TABLE IF NOT EXISTS tasks (
     encrypted_data TEXT NOT NULL,
     nonce TEXT NOT NULL,
-    uuid UUID DEFAULT gen_random_uuid(),
+    uid TEXT NOT NULL,
     last_updated BIGINT,
     user_id INTEGER REFERENCES users(id),
-    UNIQUE(user_id, uuid),
-    PRIMARY KEY (user_id, uuid)
+    UNIQUE(user_id, uid),
+    PRIMARY KEY (user_id, uid)
 );
 
 CREATE TABLE IF NOT EXISTS shortcuts (
     encrypted_data TEXT NOT NULL,
     nonce TEXT NOT NULL,
-    uuid UUID DEFAULT gen_random_uuid(),
+    uid TEXT NOT NULL,
     last_updated BIGINT,
     user_id INTEGER REFERENCES users(id),
-    UNIQUE(user_id, uuid),
-    PRIMARY KEY (user_id, uuid)
+    UNIQUE(user_id, uid),
+    PRIMARY KEY (user_id, uid)
 );
