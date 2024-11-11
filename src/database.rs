@@ -400,6 +400,19 @@ pub async fn update_encryption_key(
     user_id: i32,
     key_hash: &str,
 ) -> Result<(), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+
+    // Delete existing tasks
+    sqlx::query!("DELETE FROM tasks WHERE user_id = $1", user_id)
+        .execute(&mut *tx)
+        .await?;
+
+    // Delete existing shortcuts
+    sqlx::query!("DELETE FROM shortcuts WHERE user_id = $1", user_id)
+        .execute(&mut *tx)
+        .await?;
+
+    // Update encryption key
     sqlx::query!(
         r#"
         UPDATE users
@@ -410,7 +423,10 @@ pub async fn update_encryption_key(
         key_hash,
         user_id
     )
-    .execute(pool)
-    .await
-    .map(|_| ())
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(())
 }

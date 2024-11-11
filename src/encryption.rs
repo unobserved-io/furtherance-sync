@@ -14,13 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
-
 use actix_web::{
     error::ErrorUnauthorized, http::header, web, Error, HttpRequest, HttpResponse, Responder,
 };
 use askama::Template;
-use serde::Deserialize;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use rand::RngCore;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::{database, models::AppState};
 
@@ -29,18 +30,23 @@ use crate::{database, models::AppState};
 struct EncryptionSetupTemplate {
     error_msg: Option<String>,
     success_msg: Option<String>,
-    current_key: Option<String>,
+    has_key: bool,
 }
 
-impl EncryptionSetupTemplate {
-    fn current_key_or_default(&self) -> String {
-        self.current_key.clone().unwrap_or_default()
-    }
+#[derive(Serialize)]
+struct GenerateKeyResponse {
+    key: String,
 }
 
 #[derive(Deserialize)]
-pub struct KeySetupForm {
-    encryption_key: String,
+pub struct GenerateConfirmation {
+    pub confirmation: String,
+}
+
+pub fn generate_encryption_key() -> String {
+    let mut key = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut key);
+    URL_SAFE_NO_PAD.encode(key)
 }
 
 pub async fn show_encryption_setup(data: web::Data<AppState>, req: HttpRequest) -> impl Responder {
@@ -59,18 +65,15 @@ pub async fn show_encryption_setup(data: web::Data<AppState>, req: HttpRequest) 
     let error_msg = query.get("error").map(|e| e.to_string());
     let success_msg = query.get("message").map(|m| m.to_string());
 
-    let current_key = match database::fetch_encryption_key(&data.db, user_id).await {
-        Ok(key) => key,
-        Err(e) => {
-            eprintln!("Error fetching encryption key from database: {}", e);
-            None
-        }
-    };
+    let has_key = database::fetch_encryption_key(&data.db, user_id)
+        .await
+        .map(|key| key.is_some())
+        .unwrap_or(false);
 
     let html = EncryptionSetupTemplate {
         error_msg,
         success_msg,
-        current_key: current_key.map(|_| "Key is set".to_string()),
+        has_key,
     }
     .render()
     .unwrap();
@@ -78,47 +81,44 @@ pub async fn show_encryption_setup(data: web::Data<AppState>, req: HttpRequest) 
     HttpResponse::Ok().content_type("text/html").body(html)
 }
 
-pub async fn handle_key_setup(
+pub async fn generate_key(
     data: web::Data<AppState>,
     req: HttpRequest,
-    form: web::Form<KeySetupForm>,
-) -> impl Responder {
+    confirmation: Option<web::Json<GenerateConfirmation>>,
+) -> Result<impl Responder, Error> {
     let user_id = match verify_session(&req).await {
         Ok(id) => id,
-        Err(_) => {
-            return HttpResponse::Found()
-                .append_header((header::LOCATION, "/login"))
-                .finish()
-        }
+        Err(_) => return Ok(HttpResponse::Unauthorized().finish()),
     };
 
-    // TODO: Remove depending on formatting
-    // Remove any formatting from the key
-    let clean_key = form.encryption_key.replace("-", "");
+    // Check if user already has a key
+    let has_key = database::fetch_encryption_key(&data.db, user_id)
+        .await
+        .map(|key| key.is_some())
+        .unwrap_or(false);
 
-    let key_hash = match bcrypt::hash(&clean_key, bcrypt::DEFAULT_COST) {
-        Ok(hash) => hash,
-        Err(_) => {
-            return HttpResponse::Found()
-                .append_header((header::LOCATION, "/encryption?error=Could not hash key"))
-                .finish()
+    // If user has a key, require confirmation
+    if has_key {
+        match confirmation {
+            Some(conf) if conf.confirmation == "generate" => {}
+            _ => {
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "confirmation_required",
+                    "message": "Existing key found. Confirmation required."
+                })));
+            }
         }
-    };
-
-    match database::update_encryption_key(&data.db, user_id, &key_hash).await {
-        Ok(_) => HttpResponse::Found()
-            .append_header((
-                header::LOCATION,
-                "/encryption?message=Encryption key saved successfully",
-            ))
-            .finish(),
-        Err(_) => HttpResponse::Found()
-            .append_header((
-                header::LOCATION,
-                "/encryption?error=Could not save encryption key",
-            ))
-            .finish(),
     }
+
+    let new_key = generate_encryption_key();
+    let key_hash = bcrypt::hash(&new_key.replace("-", ""), bcrypt::DEFAULT_COST)
+        .map_err(|_| actix_web::error::ErrorInternalServerError("Failed to hash key"))?;
+
+    database::update_encryption_key(&data.db, user_id, &key_hash)
+        .await
+        .map_err(|_| actix_web::error::ErrorInternalServerError("Failed to update key"))?;
+
+    Ok(HttpResponse::Ok().json(GenerateKeyResponse { key: new_key }))
 }
 
 async fn verify_session(req: &HttpRequest) -> Result<i32, Error> {

@@ -24,7 +24,7 @@ mod sync;
 
 use actix_web::{web, App, HttpServer};
 use database::*;
-use encryption::{handle_key_setup, show_encryption_setup};
+use encryption::{generate_key, show_encryption_setup};
 use login::*;
 use models::AppState;
 use register::*;
@@ -39,15 +39,17 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
+            // Web interface routes
             .route("/", web::get().to(show_login))
-            .route("/api/login", web::post().to(login))
             .route("/login", web::get().to(show_login))
             .route("/login", web::post().to(handle_login_form))
             .route("/register", web::get().to(show_register))
             .route("/register", web::post().to(handle_register_form))
             .route("/encryption", web::get().to(show_encryption_setup))
-            .route("/encryption", web::post().to(handle_key_setup))
             .route("/sync", web::post().to(handle_sync))
+            // API Routes
+            .route("/api/login", web::post().to(login))
+            .route("/api/encryption/generate", web::post().to(generate_key))
     })
     .bind("127.0.0.1:8662")?
     .run()

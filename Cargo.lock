@@ -328,6 +328,8 @@ dependencies = [
  "humansize",
  "num-traits",
  "percent-encoding",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -882,6 +884,7 @@ dependencies = [
  "blake3",
  "chrono",
  "jsonwebtoken",
+ "rand",
  "rusqlite",
  "serde",
  "serde_json",

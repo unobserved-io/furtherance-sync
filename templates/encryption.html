@@ -21,74 +21,47 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     <head>
         <title>Encryption Setup - Furtherance</title>
         <style>
-            body {
-                font-family: Arial, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-                background-color: #f0f0f0;
+            /* Previous styles remain the same */
+            .modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 1000;
             }
-            .container {
-                background: white;
+            .modal-content {
+                position: relative;
+                background-color: white;
+                margin: 15% auto;
                 padding: 20px;
                 border-radius: 5px;
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                max-width: 600px;
+                max-width: 500px;
                 width: 90%;
             }
-            .warning {
+            .confirmation-dialog {
+                display: none;
+                margin-top: 20px;
+                padding: 15px;
                 background-color: #fff3cd;
                 border: 1px solid #ffeeba;
-                color: #856404;
-                padding: 15px;
-                margin-bottom: 20px;
                 border-radius: 3px;
             }
-            .key-display {
-                background-color: #e9ecef;
-                padding: 15px;
+            .confirmation-dialog input {
+                width: 100%;
+                padding: 8px;
+                margin: 10px 0;
+                border: 1px solid #ced4da;
                 border-radius: 3px;
-                font-family: monospace;
-                margin: 15px 0;
-                word-break: break-all;
-                text-align: center;
             }
-            .button-group {
-                display: flex;
-                gap: 10px;
-                margin-top: 20px;
-            }
-            button {
-                flex: 1;
-                padding: 10px;
-                border: none;
-                border-radius: 3px;
+            .close {
+                position: absolute;
+                right: 10px;
+                top: 5px;
+                font-size: 24px;
                 cursor: pointer;
-                font-weight: bold;
-            }
-            .generate-btn {
-                background-color: #007bff;
-                color: white;
-            }
-            .generate-btn:hover {
-                background-color: #0056b3;
-            }
-            .save-btn {
-                background-color: #28a745;
-                color: white;
-            }
-            .save-btn:hover {
-                background-color: #218838;
-            }
-            .error {
-                color: #dc3545;
-                margin-bottom: 15px;
-            }
-            .success {
-                color: #28a745;
-                margin-bottom: 15px;
             }
         </style>
     </head>
@@ -108,6 +81,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 <ul>
                     <li>Your encryption key is used to protect your data.</li>
                     <li>
+                        Once generated, the key will only be shown once - you
+                        must save it immediately.
+                    </li>
+                    <li>
                         Store it somewhere safe - if you lose it, you won't be
                         able to access your encrypted data.
                     </li>
@@ -115,68 +92,125 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         This key is different from your password and cannot be
                         reset.
                     </li>
-                    <li>
-                        Generating a new key will delete all existing encrypted
-                        data.
-                    </li>
                 </ul>
             </div>
 
-            {% match current_key %} {% when Some with (key) %}
-            <div class="key-display">{{ key }}</div>
-            {% when None %}
-            <p>No encryption key set up yet.</p>
-            {% endmatch %}
+            {% if has_key %}
+            <p>An encryption key is currently set up.</p>
+            {% endif %}
 
-            <form method="POST" action="/encryption" id="keyForm">
-                <div class="button-group">
-                    <button
-                        type="button"
-                        class="generate-btn"
-                        onclick="generateKey()"
-                    >
-                        Generate New Key
-                    </button>
-                    <button type="submit" class="save-btn">Save Key</button>
-                </div>
+            <div class="button-group">
+                <button
+                    type="button"
+                    class="generate-btn"
+                    onclick="handleGenerateClick()"
+                >
+                    Generate {% if has_key %}New{% endif %} Key
+                </button>
+            </div>
+
+            <div class="confirmation-dialog" id="confirmationDialog">
+                <p>
+                    <strong>Warning:</strong> Generating a new key will
+                    invalidate your existing key. All clients will need to be
+                    updated with the new key.
+                </p>
+                <p>Type "generate" below to confirm:</p>
                 <input
-                    type="hidden"
-                    id="encryption_key"
-                    name="encryption_key"
-                    value="{{ self.current_key_or_default() }}"
+                    type="text"
+                    id="confirmationInput"
+                    placeholder="Type 'generate' to confirm"
                 />
-            </form>
+                <button onclick="confirmGenerate()" class="generate-btn">
+                    Confirm
+                </button>
+                <button onclick="cancelGenerate()" class="save-btn">
+                    Cancel
+                </button>
+            </div>
+        </div>
+
+        <div id="keyModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h3>Your Encryption Key</h3>
+                <div class="warning">
+                    <strong>WARNING: Save this key now!</strong>
+                    <ul>
+                        <li>This is the only time you will see this key.</li>
+                        <li>
+                            Store it in a secure password manager or other safe
+                            location.
+                        </li>
+                        <li>
+                            Without this key, your data cannot be recovered.
+                        </li>
+                    </ul>
+                </div>
+                <div class="key-display" id="modalKeyDisplay"></div>
+                <button onclick="closeModal()" class="save-btn">
+                    I Have Saved My Key
+                </button>
+            </div>
         </div>
 
         <script>
-            function generateKey() {
-                // Generate a random 32-byte key and encode it in base64
-                const key = new Uint8Array(32);
-                crypto.getRandomValues(key);
-                const base64Key = btoa(String.fromCharCode.apply(null, key))
-                    .replace(/\+/g, "-")
-                    .replace(/\//g, "_")
-                    .replace(/=+$/, "");
-
-                // Format key in groups of 4 characters
-                const formattedKey = base64Key.match(/.{1,4}/g).join("-");
-
-                // Update the display and form input
-                const keyDisplay = document.querySelector(".key-display");
-                if (keyDisplay) {
-                    keyDisplay.textContent = formattedKey;
+            function handleGenerateClick() {
+                const hasKey = {{ has_key|json }};
+                if (hasKey) {
+                    document.getElementById('confirmationDialog').style.display = 'block';
                 } else {
-                    const newKeyDisplay = document.createElement("div");
-                    newKeyDisplay.className = "key-display";
-                    newKeyDisplay.textContent = formattedKey;
-                    document
-                        .querySelector("form")
-                        .insertBefore(
-                            newKeyDisplay,
-                            document.querySelector(".button-group"),
-                        );
+                    generateKey();
                 }
-                document.getElementById("encryption_key").value = formattedKey;
+            }
+
+            async function generateKey(confirmation = null) {
+                try {
+                    const response = await fetch('/api/encryption/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: confirmation ? JSON.stringify({ confirmation }) : null
+                    });
+
+                    const data = await response.json();
+
+                    if (response.status === 400 && data.error === 'confirmation_required') {
+                        document.getElementById('confirmationDialog').style.display = 'block';
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Failed to generate key');
+                    }
+
+                    // Show the key in the modal
+                    document.getElementById('modalKeyDisplay').textContent = data.key;
+                    document.getElementById('keyModal').style.display = 'block';
+                    document.getElementById('confirmationDialog').style.display = 'none';
+                } catch (error) {
+                    alert('Error generating key: ' + error.message);
+                }
+            }
+
+            function confirmGenerate() {
+                const confirmationInput = document.getElementById('confirmationInput');
+                if (confirmationInput.value === 'generate') {
+                    generateKey('generate');
+                } else {
+                    alert('Please type "generate" to confirm');
+                }
+            }
+
+            function cancelGenerate() {
+                document.getElementById('confirmationDialog').style.display = 'none';
+                document.getElementById('confirmationInput').value = '';
+            }
+
+            function closeModal() {
+                document.getElementById('keyModal').style.display = 'none';
+                location.reload(); // Refresh to show updated state
             }
         </script>
     </body>
