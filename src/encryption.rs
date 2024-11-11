@@ -100,10 +100,7 @@ pub async fn handle_key_setup(
         Ok(hash) => hash,
         Err(_) => {
             return HttpResponse::Found()
-                .append_header((
-                    header::LOCATION,
-                    "/setup-encryption?error=Could not hash key",
-                ))
+                .append_header((header::LOCATION, "/encryption?error=Could not hash key"))
                 .finish()
         }
     };
@@ -112,13 +109,13 @@ pub async fn handle_key_setup(
         Ok(_) => HttpResponse::Found()
             .append_header((
                 header::LOCATION,
-                "/setup-encryption?message=Encryption key saved successfully",
+                "/encryption?message=Encryption key saved successfully",
             ))
             .finish(),
         Err(_) => HttpResponse::Found()
             .append_header((
                 header::LOCATION,
-                "/setup-encryption?error=Could not save encryption key",
+                "/encryption?error=Could not save encryption key",
             ))
             .finish(),
     }

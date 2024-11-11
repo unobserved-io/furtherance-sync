@@ -113,7 +113,7 @@ pub async fn handle_login_form(
                         .secure(true)
                         .finish(),
                 )
-                .append_header((header::LOCATION, "/setup-encryption"))
+                .append_header((header::LOCATION, "/encryption"))
                 .finish()
         }
         Ok(None) => HttpResponse::Found()
