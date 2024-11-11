@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT uid\n        FROM tasks\n        WHERE user_id = $1 AND is_orphaned = true\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "uid",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "17cc0c9505925e72fdc6c4dc75f97eac0630b62c4e333240a675462d82e7d3ea"
+}

@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE tasks SET\n            encrypted_data = $1,\n            nonce = $2,\n            last_updated = $3,\n            is_orphaned = false\n        WHERE uid = $4 AND user_id = $5\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2a64bb693e527831a4e06895e84e776eb1a0bb093f7cc54fa693b7df78642510"
+}

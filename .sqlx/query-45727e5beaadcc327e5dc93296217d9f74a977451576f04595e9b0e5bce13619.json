@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT uid\n        FROM shortcuts\n        WHERE user_id = $1 AND is_orphaned = true\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "uid",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "45727e5beaadcc327e5dc93296217d9f74a977451576f04595e9b0e5bce13619"
+}
