@@ -53,7 +53,14 @@ pub struct LoginForm {
 
 pub async fn login(data: web::Data<AppState>, login: web::Json<LoginRequest>) -> impl Responder {
     let (user_id, key_hash) = match database::fetch_user_credentials(&data.db, &login.email).await {
-        Ok(Some(credentials)) => credentials,
+        Ok(Some(credentials)) => match credentials {
+            (id, Some(hash)) => (id, hash),
+            (_, None) => {
+                return HttpResponse::NotFound().json(json!({
+                    "error": "No encryption key found. Generate a key."
+                }))
+            }
+        },
         Ok(None) => {
             return HttpResponse::Unauthorized().json(json!({
                 "error": "Invalid email or password"

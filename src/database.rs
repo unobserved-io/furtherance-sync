@@ -368,18 +368,19 @@ pub async fn store_user_token(
 pub async fn fetch_user_credentials(
     pool: &PgPool,
     email: &str,
-) -> Result<Option<(i32, String)>, sqlx::Error> {
+) -> Result<Option<(i32, Option<String>)>, sqlx::Error> {
     let record = sqlx::query!(
-            r#"
-            SELECT id, encryption_key_hash
-            FROM users
-            WHERE email = $1
-            "#,
-            email
-        )
+        r#"
+        SELECT id, encryption_key_hash
+        FROM users
+        WHERE email = $1
+        "#,
+        email
+    )
     .fetch_optional(pool)
-    .await
-    .map(|row| row.map(|r| (r.id, r.encryption_key_hash)))
+    .await?;
+
+    Ok(record.map(|r| (r.id, r.encryption_key_hash)))
 }
 
 pub async fn fetch_encryption_key(

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, password_hash\n        FROM users\n        WHERE email = $1 AND password_hash = $2\n        ",
+  "query": "\n        SELECT id, encryption_key_hash\n        FROM users\n        WHERE email = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -10,20 +10,19 @@
       },
       {
         "ordinal": 1,
-        "name": "password_hash",
+        "name": "encryption_key_hash",
         "type_info": "Varchar"
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
         "Text"
       ]
     },
     "nullable": [
       false,
-      false
+      true
     ]
   },
-  "hash": "84fd9e0d81f64b5af064ac6d65c25597872fa7af6598c2c8fdbb53c73569ce91"
+  "hash": "3121ff0993bbf6fe809d0dd4859a8ebd621b208ba99d40cbdd19616bb5738e7f"
 }

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE users\n        SET encryption_key_hash = $1,\n            encryption_key_version = encryption_key_version + 1\n        WHERE id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f2896c063fa93982cae5d64fb5ce55340dfc428ce32ea0bf5694bb793214cc68"
+}
