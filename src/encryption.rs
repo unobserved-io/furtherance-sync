@@ -111,7 +111,7 @@ pub async fn generate_key(
     }
 
     let new_key = generate_encryption_key();
-    let key_hash = bcrypt::hash(&new_key.replace("-", ""), bcrypt::DEFAULT_COST)
+    let key_hash = bcrypt::hash(&new_key, bcrypt::DEFAULT_COST)
         .map_err(|_| actix_web::error::ErrorInternalServerError("Failed to hash key"))?;
 
     database::update_encryption_key(&data.db, user_id, &key_hash)
