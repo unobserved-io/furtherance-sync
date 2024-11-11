@@ -97,9 +97,9 @@ pub async fn handle_sync(
 
     for encrypted_task in &sync_data.tasks {
         match get_task_by_uid(&data.db, &encrypted_task.uid, user_id).await {
-            Ok(Some(server_task)) => {
+            Ok(Some((server_task, is_orphaned))) => {
                 // Task exists - update it if it changed
-                if encrypted_task.last_updated > server_task.last_updated {
+                if is_orphaned || encrypted_task.last_updated > server_task.last_updated {
                     match update_task(&data.db, &encrypted_task, user_id).await {
                         Ok(_) => task_ids_updated.push(&encrypted_task.uid),
                         Err(e) => eprintln!("Error updating task: {}", e),
@@ -122,9 +122,9 @@ pub async fn handle_sync(
 
     for encrypted_shortcut in &sync_data.shortcuts {
         match get_shortcut_by_uid(&data.db, &encrypted_shortcut.uid, user_id).await {
-            Ok(Some(server_shortcut)) => {
+            Ok(Some((server_shortcut, is_orphaned))) => {
                 // Shortcut exists - update it if it changed
-                if encrypted_shortcut.last_updated > server_shortcut.last_updated {
+                if is_orphaned || encrypted_shortcut.last_updated > server_shortcut.last_updated {
                     match update_shortcut(&data.db, &encrypted_shortcut, user_id).await {
                         Ok(_) => shortcut_ids_updated.push(&encrypted_shortcut.uid),
                         Err(e) => eprintln!("Error updating shortcut: {}", e),

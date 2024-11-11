@@ -134,10 +134,10 @@ pub async fn get_task_by_uid(
     pool: &PgPool,
     uid: &str,
     user_id: i32,
-) -> Result<Option<EncryptedTask>, Box<dyn Error>> {
+) -> Result<Option<(EncryptedTask, bool)>, Box<dyn Error>> {
     let record = sqlx::query!(
         r#"
-        SELECT encrypted_data, nonce, uid, last_updated
+        SELECT encrypted_data, nonce, uid, last_updated, is_orphaned
         FROM tasks WHERE uid = $1 AND user_id = $2
         "#,
         uid,
@@ -146,11 +146,16 @@ pub async fn get_task_by_uid(
     .fetch_optional(pool)
     .await?;
 
-    Ok(record.map(|r| EncryptedTask {
-        encrypted_data: r.encrypted_data,
-        nonce: r.nonce,
-        uid: r.uid,
-        last_updated: r.last_updated.unwrap_or_default(),
+    Ok(record.map(|r| {
+        (
+            EncryptedTask {
+                encrypted_data: r.encrypted_data,
+                nonce: r.nonce,
+                uid: r.uid,
+                last_updated: r.last_updated.unwrap_or_default(),
+            },
+            r.is_orphaned,
+        )
     }))
 }
 
@@ -158,10 +163,10 @@ pub async fn get_shortcut_by_uid(
     pool: &PgPool,
     uid: &str,
     user_id: i32,
-) -> Result<Option<EncryptedShortcut>, Box<dyn Error>> {
+) -> Result<Option<(EncryptedShortcut, bool)>, Box<dyn Error>> {
     let record = sqlx::query!(
         r#"
-        SELECT encrypted_data, nonce, uid, last_updated
+        SELECT encrypted_data, nonce, uid, last_updated, is_orphaned
         FROM shortcuts WHERE uid = $1 AND user_id = $2
         "#,
         uid,
@@ -170,11 +175,16 @@ pub async fn get_shortcut_by_uid(
     .fetch_optional(pool)
     .await?;
 
-    Ok(record.map(|r| EncryptedShortcut {
-        encrypted_data: r.encrypted_data,
-        nonce: r.nonce,
-        uid: r.uid,
-        last_updated: r.last_updated.unwrap_or_default(),
+    Ok(record.map(|r| {
+        (
+            EncryptedShortcut {
+                encrypted_data: r.encrypted_data,
+                nonce: r.nonce,
+                uid: r.uid,
+                last_updated: r.last_updated.unwrap_or_default(),
+            },
+            r.is_orphaned,
+        )
     }))
 }
 
