@@ -46,11 +46,11 @@ async fn main() -> std::io::Result<()> {
             .route("/register", web::get().to(show_register))
             .route("/register", web::post().to(handle_register_form))
             .route("/encryption", web::get().to(show_encryption_setup))
-            .route("/sync", web::post().to(handle_sync))
             // API Routes
             .route("/api/encryption/generate", web::post().to(generate_key))
             .route("/api/login", web::post().to(login))
             .route("/api/orphaned", web::get().to(get_orphaned_items))
+            .route("/api/sync", web::post().to(handle_sync))
     })
     .bind("127.0.0.1:8662")?
     .run()
