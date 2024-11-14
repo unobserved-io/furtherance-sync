@@ -18,6 +18,7 @@ mod auth;
 mod database;
 mod encryption;
 mod login;
+mod logout;
 mod models;
 mod register;
 mod sync;
@@ -26,6 +27,7 @@ use actix_web::{web, App, HttpResponse, HttpServer};
 use database::*;
 use encryption::{generate_key, show_encryption_setup};
 use login::*;
+use logout::*;
 use models::AppState;
 use register::*;
 use std::sync::Arc;
@@ -49,6 +51,7 @@ async fn main() -> std::io::Result<()> {
             // API Routes
             .route("/api/encryption/generate", web::post().to(generate_key))
             .route("/api/login", web::post().to(login))
+            .route("/api/logout", web::post().to(log_out_client))
             .route("/api/orphaned", web::get().to(get_orphaned_items))
             .route("/api/sync", web::post().to(handle_sync))
     })

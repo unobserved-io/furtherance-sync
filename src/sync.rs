@@ -23,7 +23,7 @@ use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
-struct SyncRequest {
+pub struct SyncRequest {
     last_sync: i64,
     tasks: Vec<EncryptedTask>,
     shortcuts: Vec<EncryptedShortcut>,

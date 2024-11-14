@@ -506,3 +506,22 @@ pub async fn has_any_users(pool: &PgPool) -> Result<bool, sqlx::Error> {
 
     Ok(record.exists)
 }
+
+pub async fn delete_user_token(
+    pool: &PgPool,
+    user_id: i32,
+    device_id_hash: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        DELETE FROM user_tokens
+        WHERE user_id = $1 AND device_id_hash = $2
+        "#,
+        user_id,
+        device_id_hash
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
