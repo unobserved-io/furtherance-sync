@@ -494,3 +494,15 @@ pub async fn update_encryption_key(
 
     Ok(())
 }
+
+pub async fn has_any_users(pool: &PgPool) -> Result<bool, sqlx::Error> {
+    let record = sqlx::query!(
+        r#"
+        SELECT EXISTS (SELECT 1 FROM users LIMIT 1) as "exists!"
+        "#
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(record.exists)
+}

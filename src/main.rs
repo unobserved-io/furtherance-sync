@@ -22,7 +22,7 @@ mod models;
 mod register;
 mod sync;
 
-use actix_web::{web, App, HttpServer};
+use actix_web::{web, App, HttpResponse, HttpServer};
 use database::*;
 use encryption::{generate_key, show_encryption_setup};
 use login::*;
@@ -40,7 +40,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(app_state.clone())
             // Web interface routes
-            .route("/", web::get().to(show_login))
+            .route("/", web::get().to(determine_root))
             .route("/login", web::get().to(show_login))
             .route("/login", web::post().to(handle_login_form))
             .route("/register", web::get().to(show_register))
@@ -55,4 +55,16 @@ async fn main() -> std::io::Result<()> {
     .bind("127.0.0.1:8662")?
     .run()
     .await
+}
+
+async fn determine_root(state: web::Data<AppState>) -> HttpResponse {
+    match has_any_users(&state.db).await {
+        Ok(true) => HttpResponse::Found()
+            .append_header(("Location", "/login"))
+            .finish(),
+        Ok(false) => HttpResponse::Found()
+            .append_header(("Location", "/register"))
+            .finish(),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
 }
