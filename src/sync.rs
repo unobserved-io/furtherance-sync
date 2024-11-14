@@ -19,8 +19,10 @@ use crate::{
     database::*,
     models::{AppState, EncryptedShortcut, EncryptedTask},
 };
+
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 #[derive(Deserialize)]
 pub struct SyncRequest {
@@ -47,7 +49,10 @@ pub async fn get_orphaned_items(data: web::Data<AppState>, req: HttpRequest) -> 
     let auth_header = match req.headers().get("Authorization") {
         Some(header) => match header.to_str() {
             Ok(auth_str) => auth_str.replace("Bearer ", ""),
-            Err(_) => return HttpResponse::Unauthorized().finish(),
+            Err(e) => {
+                error!("Failed to parse authorization header: {}", e);
+                return HttpResponse::Unauthorized().finish();
+            }
         },
         None => return HttpResponse::Unauthorized().finish(),
     };
@@ -61,7 +66,7 @@ pub async fn get_orphaned_items(data: web::Data<AppState>, req: HttpRequest) -> 
     let task_uids = match fetch_orphaned_task_uids(&data.db, user_id).await {
         Ok(uids) => uids,
         Err(e) => {
-            eprintln!("Error fetching orphaned task UIDs: {}", e);
+            error!("Error fetching orphaned task UIDs: {}", e);
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -69,7 +74,7 @@ pub async fn get_orphaned_items(data: web::Data<AppState>, req: HttpRequest) -> 
     let shortcut_uids = match fetch_orphaned_shortcut_uids(&data.db, user_id).await {
         Ok(uids) => uids,
         Err(e) => {
-            eprintln!("Error fetching orphaned shortcut UIDs: {}", e);
+            error!("Error fetching orphaned shortcut UIDs: {}", e);
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -116,7 +121,7 @@ pub async fn handle_sync(
                 if is_orphaned || encrypted_task.last_updated > server_task.last_updated {
                     match update_task(&data.db, &encrypted_task, user_id).await {
                         Ok(_) => task_ids_updated.push(&encrypted_task.uid),
-                        Err(e) => eprintln!("Error updating task: {}", e),
+                        Err(e) => error!("Error updating task: {}", e),
                     }
                 } else if encrypted_task.last_updated == server_task.last_updated {
                     // This task is up to date and does not need to be sent back to client
@@ -127,10 +132,10 @@ pub async fn handle_sync(
                 // Task does not exist - insert it
                 match insert_task(&data.db, &encrypted_task, user_id).await {
                     Ok(_) => task_ids_updated.push(&encrypted_task.uid),
-                    Err(e) => eprintln!("Error inserting new task: {}", e),
+                    Err(e) => error!("Error inserting new task: {}", e),
                 }
             }
-            Err(e) => eprintln!("Error checking for existing task: {}", e),
+            Err(e) => error!("Error checking for existing task: {}", e),
         }
     }
 
@@ -141,7 +146,7 @@ pub async fn handle_sync(
                 if is_orphaned || encrypted_shortcut.last_updated > server_shortcut.last_updated {
                     match update_shortcut(&data.db, &encrypted_shortcut, user_id).await {
                         Ok(_) => shortcut_ids_updated.push(&encrypted_shortcut.uid),
-                        Err(e) => eprintln!("Error updating shortcut: {}", e),
+                        Err(e) => error!("Error updating shortcut: {}", e),
                     }
                 } else if encrypted_shortcut.last_updated == server_shortcut.last_updated {
                     // This shortcut is up to date and does not need to be sent back to client
@@ -152,10 +157,10 @@ pub async fn handle_sync(
                 // Shortcut does not exist - insert it
                 match insert_shortcut(&data.db, &encrypted_shortcut, user_id).await {
                     Ok(_) => shortcut_ids_updated.push(&encrypted_shortcut.uid),
-                    Err(e) => eprintln!("Error inserting new task: {}", e),
+                    Err(e) => error!("Error inserting new task: {}", e),
                 }
             }
-            Err(e) => eprintln!("Error checking for existing task: {}", e),
+            Err(e) => error!("Error checking for existing task: {}", e),
         }
     }
 

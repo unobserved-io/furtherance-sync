@@ -16,6 +16,7 @@
 
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Deserialize;
+use tracing::error;
 
 use crate::{auth, delete_user_token, login, models::AppState};
 
@@ -47,7 +48,7 @@ pub async fn log_out_client(
     let device_id_hash = login::hash_device_id(&logout_data.device_id);
 
     if let Err(e) = delete_user_token(&data.db, user_id, &device_id_hash).await {
-        eprintln!("Error deleting user token: {}", e);
+        error!("Error deleting user token: {}", e);
     }
 
     HttpResponse::Ok().into()

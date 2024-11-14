@@ -19,6 +19,7 @@ use std::error::Error;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 use uuid::Uuid;
 
 const ACCESS_TOKEN_DURATION: i64 = 30 * 24 * 60 * 60; // 30 days
@@ -30,9 +31,7 @@ pub struct Claims {
 }
 
 pub fn generate_access_token(user_id: i32) -> Result<String, Box<dyn Error>> {
-    let secret_key = std::env::var("FUR_SECRET_KEY")
-        .expect("FUR_SECRET_KEY must be set")
-        .into_bytes();
+    let secret_key = get_fur_secret_key()?;
 
     let expiration = (Utc::now() + Duration::seconds(ACCESS_TOKEN_DURATION)).timestamp() as usize;
     let claims = Claims {
@@ -52,9 +51,7 @@ pub fn generate_refresh_token() -> String {
 }
 
 pub fn verify_access_token(token: &str) -> Result<i32, Box<dyn Error>> {
-    let secret_key = std::env::var("FUR_SECRET_KEY")
-        .expect("FUR_SECRET_KEY must be set")
-        .into_bytes();
+    let secret_key = get_fur_secret_key()?;
 
     let token_data = decode::<Claims>(
         token,
@@ -63,4 +60,14 @@ pub fn verify_access_token(token: &str) -> Result<i32, Box<dyn Error>> {
     )?;
 
     Ok(token_data.claims.sub)
+}
+
+pub fn get_fur_secret_key() -> Result<Vec<u8>, Box<dyn Error>> {
+    match std::env::var("FUR_SECRET_KEY") {
+        Ok(key) => Ok(key.into_bytes()),
+        Err(e) => {
+            error!("FUR_SECRET_KEY environment variable not set: {}", e);
+            Err(Box::new(e))
+        }
+    }
 }

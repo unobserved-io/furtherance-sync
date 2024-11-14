@@ -29,4 +29,6 @@ sqlx = { version = "0.8", features = [
     "chrono",
 ] }
 tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.11", features = ["v4", "serde"] }

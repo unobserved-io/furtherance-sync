@@ -16,11 +16,18 @@
 
 use sqlx::postgres::PgPool;
 use std::error::Error;
+use tracing::error;
 
 use crate::models::{EncryptedShortcut, EncryptedTask};
 
 pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url = match std::env::var("DATABASE_URL") {
+        Ok(url) => url,
+        Err(e) => {
+            error!("DATABASE_URL environment variable not set: {}", e);
+            return Err(Box::new(e));
+        }
+    };
     let pool = PgPool::connect(&database_url).await?;
 
     sqlx::query(

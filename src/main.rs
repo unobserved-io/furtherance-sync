@@ -32,10 +32,22 @@ use models::AppState;
 use register::*;
 use std::sync::Arc;
 use sync::{get_orphaned_items, handle_sync};
+use tracing::error;
+use tracing_subscriber::{self, EnvFilter};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let pool = db_init().await.expect("Failed to initialize database");
+    init_logger();
+    let pool = match db_init().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to initialize database: {}", e);
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Database initialization failed: {}", e),
+            ));
+        }
+    };
     let app_state = web::Data::new(AppState { db: Arc::new(pool) });
 
     HttpServer::new(move || {
@@ -70,4 +82,14 @@ async fn determine_root(state: web::Data<AppState>) -> HttpResponse {
             .finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
+}
+
+fn init_logger() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::from_default_env()
+                .add_directive(tracing::Level::INFO.into())
+                .add_directive(tracing::Level::ERROR.into()),
+        )
+        .init();
 }

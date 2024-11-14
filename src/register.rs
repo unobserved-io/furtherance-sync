@@ -21,7 +21,10 @@ use askama::Template;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::Deserialize;
 
-use crate::{auth::Claims, create_user, AppState};
+use crate::{
+    auth::{self, Claims},
+    create_user, AppState,
+};
 
 #[derive(Template)]
 #[template(path = "register.html")]
@@ -47,9 +50,14 @@ pub async fn handle_register_form(
 ) -> impl Responder {
     match create_user(&data.db, &form.email, &form.password).await {
         Ok(user_id) => {
-            let secret_key = std::env::var("FUR_SECRET_KEY")
-                .expect("FUR_SECRET_KEY must be set")
-                .into_bytes();
+            let secret_key = match auth::get_fur_secret_key() {
+                Ok(key) => key,
+                Err(_) => {
+                    return HttpResponse::Found()
+                        .append_header((header::LOCATION, "/register?error=Internal server error"))
+                        .finish();
+                }
+            };
 
             let claims = Claims {
                 sub: user_id,
