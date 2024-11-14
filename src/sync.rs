@@ -17,10 +17,24 @@
 use crate::{
     auth::verify_access_token,
     database::*,
-    models::{AppState, SyncRequest, SyncResponse},
+    models::{AppState, EncryptedShortcut, EncryptedTask},
 };
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+#[derive(Deserialize)]
+struct SyncRequest {
+    last_sync: i64,
+    tasks: Vec<EncryptedTask>,
+    shortcuts: Vec<EncryptedShortcut>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SyncResponse {
+    server_timestamp: i64,
+    tasks: Vec<EncryptedTask>,
+    shortcuts: Vec<EncryptedShortcut>,
+}
 
 #[derive(Serialize)]
 struct OrphanedItemsResponse {

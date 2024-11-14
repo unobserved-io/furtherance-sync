@@ -38,17 +38,3 @@ pub struct EncryptedShortcut {
 pub struct AppState {
     pub db: Arc<PgPool>,
 }
-
-#[derive(Deserialize)]
-pub struct SyncRequest {
-    pub last_sync: i64,
-    pub tasks: Vec<EncryptedTask>,
-    pub shortcuts: Vec<EncryptedShortcut>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct SyncResponse {
-    pub server_timestamp: i64,
-    pub tasks: Vec<EncryptedTask>,
-    pub shortcuts: Vec<EncryptedShortcut>,
-}
