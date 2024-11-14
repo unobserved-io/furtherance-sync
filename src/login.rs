@@ -23,9 +23,6 @@ use serde_json::json;
 
 use crate::{auth, database, models::AppState, store_user_token, verify_user};
 
-// use crate::{auth::Claims, verify_user, AppState};
-
-// For client app API
 #[derive(Deserialize)]
 pub struct LoginRequest {
     email: String,
