@@ -378,6 +378,17 @@ pub async fn update_encryption_key(
     .execute(&mut *tx)
     .await?;
 
+    // Delete all tokens for this user
+    sqlx::query!(
+        r#"
+            DELETE FROM user_tokens
+            WHERE user_id = $1
+            "#,
+        user_id
+    )
+    .execute(&mut *tx)
+    .await?;
+
     // Update encryption key
     sqlx::query!(
         r#"
