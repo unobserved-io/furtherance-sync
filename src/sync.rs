@@ -22,6 +22,7 @@ use crate::{
 
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use tracing::error;
 
 #[derive(Deserialize)]
@@ -36,53 +37,29 @@ struct SyncResponse {
     server_timestamp: i64,
     tasks: Vec<EncryptedTask>,
     shortcuts: Vec<EncryptedShortcut>,
+    orphaned_tasks: Vec<String>,
+    orphaned_shortcuts: Vec<String>,
 }
 
-#[derive(Serialize)]
-struct OrphanedItemsResponse {
-    task_uids: Vec<String>,
-    shortcut_uids: Vec<String>,
-}
-
-pub async fn get_orphaned_items(data: web::Data<AppState>, req: HttpRequest) -> impl Responder {
-    // Extract and verify token (same as in handle_sync)
-    let auth_header = match req.headers().get("Authorization") {
-        Some(header) => match header.to_str() {
-            Ok(auth_str) => auth_str.replace("Bearer ", ""),
-            Err(e) => {
-                error!("Failed to parse authorization header: {}", e);
-                return HttpResponse::Unauthorized().finish();
-            }
-        },
-        None => return HttpResponse::Unauthorized().finish(),
-    };
-
-    let user_id = match verify_access_token(&auth_header) {
-        Ok(id) => id,
-        Err(_) => return HttpResponse::Unauthorized().finish(),
-    };
-
+pub async fn get_orphaned_items(pool: &PgPool, user_id: i32) -> (Vec<String>, Vec<String>) {
     // Fetch orphaned items from database
-    let task_uids = match fetch_orphaned_task_uids(&data.db, user_id).await {
+    let task_uids = match fetch_orphaned_task_uids(&pool, user_id).await {
         Ok(uids) => uids,
         Err(e) => {
             error!("Error fetching orphaned task UIDs: {}", e);
-            return HttpResponse::InternalServerError().finish();
+            Vec::new()
         }
     };
 
-    let shortcut_uids = match fetch_orphaned_shortcut_uids(&data.db, user_id).await {
+    let shortcut_uids = match fetch_orphaned_shortcut_uids(&pool, user_id).await {
         Ok(uids) => uids,
         Err(e) => {
             error!("Error fetching orphaned shortcut UIDs: {}", e);
-            return HttpResponse::InternalServerError().finish();
+            Vec::new()
         }
     };
 
-    HttpResponse::Ok().json(OrphanedItemsResponse {
-        task_uids,
-        shortcut_uids,
-    })
+    (task_uids, shortcut_uids)
 }
 
 pub async fn handle_sync(
@@ -172,6 +149,8 @@ pub async fn handle_sync(
         .await
         .unwrap_or_default();
 
+    let (orphaned_tasks, orphaned_shortcuts) = get_orphaned_items(&data.db, user_id).await;
+
     let response = SyncResponse {
         server_timestamp,
         tasks: new_tasks
@@ -182,10 +161,17 @@ pub async fn handle_sync(
             .into_iter()
             .filter(|shortcut| !shortcut_ids_updated.contains(&shortcut.uid.as_str()))
             .collect(),
+        orphaned_tasks,
+        orphaned_shortcuts,
     };
 
     println!("{} tasks sent", response.tasks.len());
     println!("{} shortcuts sent", response.shortcuts.len());
+    println!("{} orphaned tasks sent", response.orphaned_tasks.len());
+    println!(
+        "{} orphaned shortcuts sent",
+        response.orphaned_shortcuts.len()
+    );
 
     HttpResponse::Ok().json(response)
 }

@@ -31,7 +31,7 @@ use logout::*;
 use models::AppState;
 use register::*;
 use std::sync::Arc;
-use sync::{get_orphaned_items, handle_sync};
+use sync::handle_sync;
 use tracing::error;
 use tracing_subscriber::{self, EnvFilter};
 
@@ -64,7 +64,6 @@ async fn main() -> std::io::Result<()> {
             .route("/api/encryption/generate", web::post().to(generate_key))
             .route("/api/login", web::post().to(login))
             .route("/api/logout", web::post().to(log_out_client))
-            .route("/api/orphaned", web::get().to(get_orphaned_items))
             .route("/api/sync", web::post().to(handle_sync))
     })
     .bind("127.0.0.1:8662")?
