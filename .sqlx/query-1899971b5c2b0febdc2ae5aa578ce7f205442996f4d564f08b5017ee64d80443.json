@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT encrypted_data, nonce, uid, last_updated, is_orphaned\n        FROM shortcuts WHERE uid = $1 AND user_id = $2\n        ",
+  "query": "\n        SELECT\n            encrypted_data,\n            nonce,\n            uid,\n            last_updated\n        FROM tasks\n        WHERE user_id = $1\n        AND (\n            NOT ($2 = ANY(known_by_devices))\n            OR\n            (last_updated > $3)\n        )\n        AND NOT is_orphaned",
   "describe": {
     "columns": [
       {
@@ -22,26 +22,21 @@
         "ordinal": 3,
         "name": "last_updated",
         "type_info": "Int8"
-      },
-      {
-        "ordinal": 4,
-        "name": "is_orphaned",
-        "type_info": "Bool"
       }
     ],
     "parameters": {
       "Left": [
+        "Int4",
         "Text",
-        "Int4"
+        "Int8"
       ]
     },
     "nullable": [
       false,
       false,
       false,
-      false,
       false
     ]
   },
-  "hash": "5ed6d53ba575a2d588f119b1e55eed8b58d71dd4e43d19283c5211a2e986dc0d"
+  "hash": "1899971b5c2b0febdc2ae5aa578ce7f205442996f4d564f08b5017ee64d80443"
 }

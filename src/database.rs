@@ -18,7 +18,10 @@ use sqlx::postgres::PgPool;
 use std::error::Error;
 use tracing::error;
 
-use crate::models::{EncryptedShortcut, EncryptedTask};
+use crate::{
+    login,
+    models::{EncryptedShortcut, EncryptedTask},
+};
 
 pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     let database_url = match std::env::var("DATABASE_URL") {
@@ -64,9 +67,10 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             encrypted_data TEXT NOT NULL,
             nonce TEXT NOT NULL,
             uid TEXT NOT NULL,
-            last_updated BIGINT,
+            last_updated BIGINT NOT NULL DEFAULT 0,
             is_orphaned BOOL NOT NULL DEFAULT FALSE,
             user_id INTEGER REFERENCES users(id),
+            known_by_devices TEXT[] DEFAULT '{}',
             UNIQUE(user_id, uid),
             PRIMARY KEY (user_id, uid)
         );"#,
@@ -80,9 +84,10 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             encrypted_data TEXT NOT NULL,
             nonce TEXT NOT NULL,
             uid TEXT NOT NULL,
-            last_updated BIGINT,
+            last_updated BIGINT NOT NULL DEFAULT 0,
             is_orphaned BOOL NOT NULL DEFAULT FALSE,
             user_id INTEGER REFERENCES users(id),
+            known_by_devices TEXT[] DEFAULT '{}',
             UNIQUE(user_id, uid),
             PRIMARY KEY (user_id, uid)
         );"#,
@@ -95,19 +100,47 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
 
 pub async fn insert_task(
     pool: &PgPool,
-    encrypted_task: &EncryptedTask,
+    task: &EncryptedTask,
     user_id: i32,
-) -> Result<(), Box<dyn Error>> {
+    device_refresh_token: &str,
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
-            INSERT INTO tasks (encrypted_data, nonce, uid, last_updated, user_id)
-            VALUES ($1, $2, $3, $4, $5)
-            "#,
-        encrypted_task.encrypted_data,
-        encrypted_task.nonce,
-        encrypted_task.uid,
-        encrypted_task.last_updated,
-        user_id
+        INSERT INTO tasks
+            (encrypted_data, nonce, uid, last_updated, user_id, known_by_devices)
+        VALUES ($1, $2, $3, $4, $5, ARRAY[$6])
+        ON CONFLICT (user_id, uid) DO UPDATE
+        SET encrypted_data =
+            CASE
+                WHEN tasks.is_orphaned OR $4 >= tasks.last_updated
+                THEN $1
+                ELSE tasks.encrypted_data
+            END,
+        nonce =
+            CASE
+                WHEN tasks.is_orphaned OR $4 >= tasks.last_updated
+                THEN $2
+                ELSE tasks.nonce
+            END,
+        last_updated =
+            CASE
+                WHEN tasks.is_orphaned OR $4 >= tasks.last_updated
+                THEN $4
+                ELSE tasks.last_updated
+            END,
+        known_by_devices =
+            CASE
+                WHEN $6 = ANY(tasks.known_by_devices)
+                THEN tasks.known_by_devices
+                ELSE array_append(tasks.known_by_devices, $6)
+            END,
+        is_orphaned = false"#,
+        task.encrypted_data,
+        task.nonce,
+        task.uid,
+        task.last_updated,
+        user_id,
+        device_refresh_token,
     )
     .execute(pool)
     .await?;
@@ -117,192 +150,52 @@ pub async fn insert_task(
 
 pub async fn insert_shortcut(
     pool: &PgPool,
-    encrypted_shortcut: &EncryptedShortcut,
-    user_id: i32,
-) -> Result<(), Box<dyn Error>> {
-    sqlx::query!(
-        r#"
-            INSERT INTO shortcuts (encrypted_data, nonce, uid, last_updated, user_id)
-            VALUES ($1, $2, $3, $4, $5)
-            "#,
-        encrypted_shortcut.encrypted_data,
-        encrypted_shortcut.nonce,
-        encrypted_shortcut.uid,
-        encrypted_shortcut.last_updated,
-        user_id
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(())
-}
-
-pub async fn get_task_by_uid(
-    pool: &PgPool,
-    uid: &str,
-    user_id: i32,
-) -> Result<Option<(EncryptedTask, bool)>, Box<dyn Error>> {
-    let record = sqlx::query!(
-        r#"
-        SELECT encrypted_data, nonce, uid, last_updated, is_orphaned
-        FROM tasks WHERE uid = $1 AND user_id = $2
-        "#,
-        uid,
-        user_id
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(record.map(|r| {
-        (
-            EncryptedTask {
-                encrypted_data: r.encrypted_data,
-                nonce: r.nonce,
-                uid: r.uid,
-                last_updated: r.last_updated.unwrap_or_default(),
-            },
-            r.is_orphaned,
-        )
-    }))
-}
-
-pub async fn get_shortcut_by_uid(
-    pool: &PgPool,
-    uid: &str,
-    user_id: i32,
-) -> Result<Option<(EncryptedShortcut, bool)>, Box<dyn Error>> {
-    let record = sqlx::query!(
-        r#"
-        SELECT encrypted_data, nonce, uid, last_updated, is_orphaned
-        FROM shortcuts WHERE uid = $1 AND user_id = $2
-        "#,
-        uid,
-        user_id
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(record.map(|r| {
-        (
-            EncryptedShortcut {
-                encrypted_data: r.encrypted_data,
-                nonce: r.nonce,
-                uid: r.uid,
-                last_updated: r.last_updated.unwrap_or_default(),
-            },
-            r.is_orphaned,
-        )
-    }))
-}
-
-pub async fn update_task(
-    pool: &PgPool,
-    task: &EncryptedTask,
-    user_id: i32,
-) -> Result<(), Box<dyn Error>> {
-    sqlx::query!(
-        r#"
-        UPDATE tasks SET
-            encrypted_data = $1,
-            nonce = $2,
-            last_updated = $3,
-            is_orphaned = false
-        WHERE uid = $4 AND user_id = $5
-        "#,
-        task.encrypted_data,
-        task.nonce,
-        task.last_updated,
-        task.uid,
-        user_id
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(())
-}
-
-pub async fn update_shortcut(
-    pool: &PgPool,
     shortcut: &EncryptedShortcut,
     user_id: i32,
-) -> Result<(), Box<dyn Error>> {
+    device_refresh_token: &str,
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
-        UPDATE shortcuts SET
-            encrypted_data = $1,
-            nonce = $2,
-            last_updated = $3,
-            is_orphaned = false
-        WHERE uid = $4 AND user_id = $5
-        "#,
+            INSERT INTO shortcuts
+                (encrypted_data, nonce, uid, last_updated, user_id, known_by_devices)
+            VALUES ($1, $2, $3, $4, $5, ARRAY[$6])
+            ON CONFLICT (user_id, uid) DO UPDATE
+            SET encrypted_data =
+                CASE
+                    WHEN shortcuts.is_orphaned OR $4 >= shortcuts.last_updated
+                    THEN $1
+                    ELSE shortcuts.encrypted_data
+                END,
+            nonce =
+                CASE
+                    WHEN shortcuts.is_orphaned OR $4 >= shortcuts.last_updated
+                    THEN $2
+                    ELSE shortcuts.nonce
+                END,
+            last_updated =
+                CASE
+                    WHEN shortcuts.is_orphaned OR $4 >= shortcuts.last_updated
+                    THEN $4
+                    ELSE shortcuts.last_updated
+                END,
+            known_by_devices =
+                CASE
+                    WHEN $6 = ANY(shortcuts.known_by_devices)
+                    THEN shortcuts.known_by_devices
+                    ELSE array_append(shortcuts.known_by_devices, $6)
+                END,
+            is_orphaned = false"#,
         shortcut.encrypted_data,
         shortcut.nonce,
-        shortcut.last_updated,
         shortcut.uid,
-        user_id
+        shortcut.last_updated,
+        user_id,
+        device_refresh_token,
     )
     .execute(pool)
     .await?;
 
     Ok(())
-}
-
-pub async fn fetch_new_tasks(
-    pool: &PgPool,
-    last_sync: i64,
-    user_id: i32,
-) -> Result<Vec<EncryptedTask>, Box<dyn Error>> {
-    let records = sqlx::query!(
-        r#"
-        SELECT encrypted_data, nonce, uid, last_updated
-        FROM tasks
-        WHERE user_id = $1 AND last_updated >= $2
-        ORDER BY last_updated ASC
-        "#,
-        user_id,
-        last_sync
-    )
-    .fetch_all(pool)
-    .await?;
-
-    Ok(records
-        .into_iter()
-        .map(|r| EncryptedTask {
-            encrypted_data: r.encrypted_data,
-            nonce: r.nonce,
-            uid: r.uid,
-            last_updated: r.last_updated.unwrap_or_default(),
-        })
-        .collect())
-}
-
-pub async fn fetch_new_shortcuts(
-    pool: &PgPool,
-    last_sync: i64,
-    user_id: i32,
-) -> Result<Vec<EncryptedShortcut>, Box<dyn Error>> {
-    let records = sqlx::query!(
-        r#"
-        SELECT encrypted_data, nonce, uid, last_updated
-        FROM shortcuts
-        WHERE user_id = $1 AND last_updated >= $2
-        ORDER BY last_updated ASC
-        "#,
-        user_id,
-        last_sync
-    )
-    .fetch_all(pool)
-    .await?;
-
-    Ok(records
-        .into_iter()
-        .map(|r| EncryptedShortcut {
-            encrypted_data: r.encrypted_data,
-            nonce: r.nonce,
-            uid: r.uid,
-            last_updated: r.last_updated.unwrap_or_default(),
-        })
-        .collect())
 }
 
 pub async fn fetch_orphaned_task_uids(
@@ -317,7 +210,7 @@ pub async fn fetch_orphaned_task_uids(
         "#,
         user_id
     )
-    .fetch_optional(pool)
+    .fetch_all(pool)
     .await?;
 
     Ok(records.into_iter().map(|r| r.uid).collect())
@@ -335,7 +228,7 @@ pub async fn fetch_orphaned_shortcut_uids(
         "#,
         user_id
     )
-    .fetch_optional(pool)
+    .fetch_all(pool)
     .await?;
 
     Ok(records.into_iter().map(|r| r.uid).collect())
@@ -459,11 +352,12 @@ pub async fn update_encryption_key(
 ) -> Result<(), sqlx::Error> {
     let mut tx = pool.begin().await?;
 
-    // Mark existing tasks as orphaned
+    // Mark existing tasks as orphaned and clear known devices
     sqlx::query!(
         r#"
             UPDATE tasks
-            SET is_orphaned = true
+            SET is_orphaned = true,
+                known_by_devices = '{}'
             WHERE user_id = $1
             "#,
         user_id
@@ -471,11 +365,12 @@ pub async fn update_encryption_key(
     .execute(&mut *tx)
     .await?;
 
-    // Mark existing shortcuts as orphaned
+    // Mark existing shortcuts as orphaned and clear known devices
     sqlx::query!(
         r#"
             UPDATE shortcuts
-            SET is_orphaned = true
+            SET is_orphaned = true,
+                known_by_devices = '{}'
             WHERE user_id = $1
             "#,
         user_id
@@ -531,4 +426,175 @@ pub async fn delete_user_token(
     .await?;
 
     Ok(())
+}
+
+pub async fn fetch_tasks_for_device(
+    pool: &PgPool,
+    user_id: i32,
+    device_token: &str,
+    last_sync: i64,
+) -> Result<Vec<EncryptedTask>, sqlx::Error> {
+    let tasks = sqlx::query_as!(
+        EncryptedTask,
+        r#"
+        SELECT
+            encrypted_data,
+            nonce,
+            uid,
+            last_updated
+        FROM tasks
+        WHERE user_id = $1
+        AND (
+            NOT ($2 = ANY(known_by_devices))
+            OR
+            (last_updated > $3)
+        )
+        AND NOT is_orphaned"#,
+        user_id,
+        device_token,
+        last_sync
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(tasks)
+}
+
+pub async fn fetch_shortcuts_for_device(
+    pool: &PgPool,
+    user_id: i32,
+    device_token: &str,
+    last_sync: i64,
+) -> Result<Vec<EncryptedShortcut>, sqlx::Error> {
+    let shortcuts = sqlx::query_as!(
+        EncryptedShortcut,
+        r#"
+        SELECT
+            encrypted_data,
+            nonce,
+            uid,
+            last_updated
+        FROM shortcuts
+        WHERE user_id = $1
+        AND (
+            NOT ($2 = ANY(known_by_devices))
+            OR
+            (last_updated > $3)
+        )
+        AND NOT is_orphaned"#,
+        user_id,
+        device_token,
+        last_sync
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(shortcuts)
+}
+
+pub async fn mark_tasks_known(
+    pool: &PgPool,
+    task_uids: &[String],
+    user_id: i32,
+    device_token: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE tasks
+        SET known_by_devices =
+            CASE
+                WHEN $3 = ANY(known_by_devices)
+                THEN known_by_devices
+                ELSE array_append(known_by_devices, $3)
+            END
+        WHERE user_id = $1 AND uid = ANY($2)"#,
+        user_id,
+        task_uids,
+        device_token,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn mark_shortcuts_known(
+    pool: &PgPool,
+    shortcut_uids: &[String],
+    user_id: i32,
+    device_token: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE shortcuts
+        SET known_by_devices =
+            CASE
+                WHEN $3 = ANY(known_by_devices)
+                THEN known_by_devices
+                ELSE array_append(known_by_devices, $3)
+            END
+        WHERE user_id = $1 AND uid = ANY($2)"#,
+        user_id,
+        shortcut_uids,
+        device_token,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn cleanup_device_tokens(
+    pool: &PgPool,
+    user_id: i32,
+    expired_tokens: &[String],
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE tasks
+        SET known_by_devices = array_remove(known_by_devices, token)
+        FROM unnest($1::text[]) AS t(token)
+        WHERE user_id = $2"#,
+        expired_tokens,
+        user_id,
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        UPDATE shortcuts
+        SET known_by_devices = array_remove(known_by_devices, token)
+        FROM unnest($1::text[]) AS t(token)
+        WHERE user_id = $2"#,
+        expired_tokens,
+        user_id,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn fetch_refresh_token(
+    pool: &PgPool,
+    user_id: i32,
+    device_id: &str,
+) -> Result<Option<String>, sqlx::Error> {
+    let device_id_hash = login::hash_device_id(device_id);
+
+    let result = sqlx::query!(
+        r#"
+        SELECT refresh_token
+        FROM user_tokens
+        WHERE user_id = $1
+        AND device_id_hash = $2
+        "#,
+        user_id,
+        device_id_hash
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(result.map(|r| r.refresh_token))
 }

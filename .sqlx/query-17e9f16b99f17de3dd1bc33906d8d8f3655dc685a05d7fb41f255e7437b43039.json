@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT refresh_token\n        FROM user_tokens\n        WHERE user_id = $1\n        AND device_id_hash = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "refresh_token",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "17e9f16b99f17de3dd1bc33906d8d8f3655dc685a05d7fb41f255e7437b43039"
+}

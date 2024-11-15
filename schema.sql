@@ -20,9 +20,10 @@ CREATE TABLE IF NOT EXISTS tasks (
     encrypted_data TEXT NOT NULL,
     nonce TEXT NOT NULL,
     uid TEXT NOT NULL,
-    last_updated BIGINT,
+    last_updated BIGINT NOT NULL DEFAULT 0,
     is_orphaned BOOL NOT NULL DEFAULT FALSE,
     user_id INTEGER REFERENCES users(id),
+    known_by_devices TEXT[] DEFAULT '{}',
     UNIQUE(user_id, uid),
     PRIMARY KEY (user_id, uid)
 );
@@ -31,8 +32,9 @@ CREATE TABLE IF NOT EXISTS shortcuts (
     encrypted_data TEXT NOT NULL,
     nonce TEXT NOT NULL,
     uid TEXT NOT NULL,
-    last_updated BIGINT,
+    last_updated BIGINT NOT NULL DEFAULT 0,
     is_orphaned BOOL NOT NULL DEFAULT FALSE,
+    known_by_devices TEXT[] DEFAULT '{}',
     user_id INTEGER REFERENCES users(id),
     UNIQUE(user_id, uid),
     PRIMARY KEY (user_id, uid)

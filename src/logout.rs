@@ -18,7 +18,9 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 use tracing::error;
 
-use crate::{auth, delete_user_token, login, models::AppState};
+use crate::{
+    auth, cleanup_device_tokens, delete_user_token, fetch_refresh_token, login, models::AppState,
+};
 
 #[derive(Deserialize)]
 pub struct LogoutRequest {
@@ -47,7 +49,20 @@ pub async fn log_out_client(
 
     let device_id_hash = login::hash_device_id(&logout_data.device_id);
 
+    let refresh_token = match fetch_refresh_token(&data.db, user_id, &logout_data.device_id).await {
+        Ok(Some(token)) => token,
+        Ok(None) => return HttpResponse::Unauthorized().finish(),
+        Err(e) => {
+            error!("Error getting refresh token: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
     if let Err(e) = delete_user_token(&data.db, user_id, &device_id_hash).await {
+        error!("Error deleting user token: {}", e);
+    }
+
+    if let Err(e) = cleanup_device_tokens(&data.db, user_id, &[refresh_token]).await {
         error!("Error deleting user token: {}", e);
     }
 

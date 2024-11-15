@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO tasks\n            (encrypted_data, nonce, uid, last_updated, user_id, known_by_devices)\n        VALUES ($1, $2, $3, $4, $5, ARRAY[$6])\n        ON CONFLICT (user_id, uid) DO UPDATE\n        SET encrypted_data =\n            CASE\n                WHEN tasks.is_orphaned OR $4 >= tasks.last_updated\n                THEN $1\n                ELSE tasks.encrypted_data\n            END,\n        nonce =\n            CASE\n                WHEN tasks.is_orphaned OR $4 >= tasks.last_updated\n                THEN $2\n                ELSE tasks.nonce\n            END,\n        last_updated =\n            CASE\n                WHEN tasks.is_orphaned OR $4 >= tasks.last_updated\n                THEN $4\n                ELSE tasks.last_updated\n            END,\n        known_by_devices =\n            CASE\n                WHEN $6 = ANY(tasks.known_by_devices)\n                THEN tasks.known_by_devices\n                ELSE array_append(tasks.known_by_devices, $6)\n            END,\n        is_orphaned = false",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0476f12a11c810168852a93c5301c485185bd93f42866bd77ba0e15b01917f27"
+}

@@ -28,6 +28,7 @@ use tracing::error;
 #[derive(Deserialize)]
 pub struct SyncRequest {
     last_sync: i64,
+    device_id: String,
     tasks: Vec<EncryptedTask>,
     shortcuts: Vec<EncryptedShortcut>,
 }
@@ -82,88 +83,101 @@ pub async fn handle_sync(
         Err(_) => return HttpResponse::Unauthorized().finish(),
     };
 
+    // Get refresh token for this device
+    let refresh_token = match fetch_refresh_token(&data.db, user_id, &sync_data.device_id).await {
+        Ok(Some(token)) => token,
+        Ok(None) => return HttpResponse::Unauthorized().finish(),
+        Err(e) => {
+            error!("Error getting refresh token: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
     let server_timestamp = chrono::Utc::now().timestamp();
 
+    // TODO: Check later if these actually make a difference
     let mut task_ids_updated: Vec<&str> = Vec::new();
     let mut shortcut_ids_updated: Vec<&str> = Vec::new();
+
+    // Process incoming tasks
+    for encrypted_task in &sync_data.tasks {
+        if let Err(e) = insert_task(&data.db, encrypted_task, user_id, &refresh_token).await {
+            error!("Error processing task: {}", e);
+        } else {
+            task_ids_updated.push(&encrypted_task.uid);
+        }
+    }
+
+    // Process incoming shortcuts
+    for encrypted_shortcut in &sync_data.shortcuts {
+        if let Err(e) = insert_shortcut(&data.db, encrypted_shortcut, user_id, &refresh_token).await
+        {
+            error!("Error processing shortcut: {}", e);
+        } else {
+            shortcut_ids_updated.push(&encrypted_shortcut.uid);
+        }
+    }
+
+    // Fetch unknown and updated items
+    let tasks_to_send = match fetch_tasks_for_device(
+        &data.db,
+        user_id,
+        &refresh_token,
+        sync_data.last_sync,
+    )
+    .await
+    {
+        Ok(tasks) => tasks,
+        Err(e) => {
+            error!("Error fetching tasks: {}", e);
+            Vec::new()
+        }
+    };
+
+    let shortcuts_to_send =
+        match fetch_shortcuts_for_device(&data.db, user_id, &refresh_token, sync_data.last_sync)
+            .await
+        {
+            Ok(shortcuts) => shortcuts,
+            Err(e) => {
+                error!("Error fetching shortcuts: {}", e);
+                Vec::new()
+            }
+        };
+
+    // Get orphaned items
+    let (orphaned_tasks, orphaned_shortcuts) = get_orphaned_items(&data.db, user_id).await;
+
+    // Mark sent items as known by this device
+    if !tasks_to_send.is_empty() {
+        let task_uids: Vec<String> = tasks_to_send.iter().map(|t| t.uid.clone()).collect();
+        if let Err(e) = mark_tasks_known(&data.db, &task_uids, user_id, &refresh_token).await {
+            error!("Error marking tasks as known: {}", e);
+        }
+    }
+
+    if !shortcuts_to_send.is_empty() {
+        let shortcut_uids: Vec<String> = shortcuts_to_send.iter().map(|s| s.uid.clone()).collect();
+        if let Err(e) =
+            mark_shortcuts_known(&data.db, &shortcut_uids, user_id, &refresh_token).await
+        {
+            error!("Error marking shortcuts as known: {}", e);
+        }
+    }
 
     // TODO: Remove
     println!("{} Client tasks received", sync_data.tasks.len());
     println!("{} Client shortcuts received", sync_data.shortcuts.len());
 
-    for encrypted_task in &sync_data.tasks {
-        match get_task_by_uid(&data.db, &encrypted_task.uid, user_id).await {
-            Ok(Some((server_task, is_orphaned))) => {
-                // Task exists - update it if it changed
-                if is_orphaned || encrypted_task.last_updated > server_task.last_updated {
-                    match update_task(&data.db, &encrypted_task, user_id).await {
-                        Ok(_) => task_ids_updated.push(&encrypted_task.uid),
-                        Err(e) => error!("Error updating task: {}", e),
-                    }
-                } else if encrypted_task.last_updated == server_task.last_updated {
-                    // This task is up to date and does not need to be sent back to client
-                    task_ids_updated.push(&encrypted_task.uid);
-                }
-            }
-            Ok(None) => {
-                // Task does not exist - insert it
-                match insert_task(&data.db, &encrypted_task, user_id).await {
-                    Ok(_) => task_ids_updated.push(&encrypted_task.uid),
-                    Err(e) => error!("Error inserting new task: {}", e),
-                }
-            }
-            Err(e) => error!("Error checking for existing task: {}", e),
-        }
-    }
-
-    for encrypted_shortcut in &sync_data.shortcuts {
-        match get_shortcut_by_uid(&data.db, &encrypted_shortcut.uid, user_id).await {
-            Ok(Some((server_shortcut, is_orphaned))) => {
-                // Shortcut exists - update it if it changed
-                if is_orphaned || encrypted_shortcut.last_updated > server_shortcut.last_updated {
-                    match update_shortcut(&data.db, &encrypted_shortcut, user_id).await {
-                        Ok(_) => shortcut_ids_updated.push(&encrypted_shortcut.uid),
-                        Err(e) => error!("Error updating shortcut: {}", e),
-                    }
-                } else if encrypted_shortcut.last_updated == server_shortcut.last_updated {
-                    // This shortcut is up to date and does not need to be sent back to client
-                    shortcut_ids_updated.push(&encrypted_shortcut.uid);
-                }
-            }
-            Ok(None) => {
-                // Shortcut does not exist - insert it
-                match insert_shortcut(&data.db, &encrypted_shortcut, user_id).await {
-                    Ok(_) => shortcut_ids_updated.push(&encrypted_shortcut.uid),
-                    Err(e) => error!("Error inserting new task: {}", e),
-                }
-            }
-            Err(e) => error!("Error checking for existing task: {}", e),
-        }
-    }
-
-    // Fetch new or updated data since last_sync, but remove already updated data
-    let new_tasks = fetch_new_tasks(&data.db, sync_data.last_sync, user_id)
-        .await
-        .unwrap_or_default();
-    let new_shortcuts = fetch_new_shortcuts(&data.db, sync_data.last_sync, user_id)
-        .await
-        .unwrap_or_default();
-
-    let (orphaned_tasks, orphaned_shortcuts) = get_orphaned_items(&data.db, user_id).await;
-
     let response = SyncResponse {
         server_timestamp,
-        tasks: new_tasks
-            .into_iter()
-            .filter(|task| !task_ids_updated.contains(&task.uid.as_str()))
-            .collect(),
-        shortcuts: new_shortcuts
-            .into_iter()
-            .filter(|shortcut| !shortcut_ids_updated.contains(&shortcut.uid.as_str()))
-            .collect(),
+        tasks: tasks_to_send,
+        shortcuts: shortcuts_to_send,
         orphaned_tasks,
         orphaned_shortcuts,
     };
+
+    // TODO: Check if task_id_update or shortcut_ids_updated matches any of the tasks to send. If so, will need to remove them before sending.
 
     println!("{} tasks sent", response.tasks.len());
     println!("{} shortcuts sent", response.shortcuts.len());
