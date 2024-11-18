@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE shortcuts\n            SET is_orphaned = true,\n                known_by_devices = '{}'\n            WHERE user_id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fef6bdcd492cb3f20bdb2f1f8ca3042a15f40bd2340c12fc46f93b0dadbdafe3"
+}
