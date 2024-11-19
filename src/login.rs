@@ -21,7 +21,7 @@ use askama::Template;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{auth, database, models::AppState, store_user_token, verify_user};
+use crate::{auth, database, models::AppState};
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -80,7 +80,9 @@ pub async fn login(data: web::Data<AppState>, login: web::Json<LoginRequest>) ->
     let refresh_token = auth::generate_refresh_token();
     let device_id_hash = hash_device_id(&login.device_id);
 
-    if let Err(_) = store_user_token(&data.db, user_id, &refresh_token, &device_id_hash).await {
+    if let Err(_) =
+        database::store_user_token(&data.db, user_id, &refresh_token, &device_id_hash).await
+    {
         return HttpResponse::InternalServerError().finish();
     }
 
@@ -100,7 +102,7 @@ pub async fn handle_login_form(
     data: web::Data<AppState>,
     form: web::Form<LoginForm>,
 ) -> impl Responder {
-    match verify_user(&data.db, &form.email, &form.password).await {
+    match database::verify_user(&data.db, &form.email, &form.password).await {
         Ok(Some(user_id)) => {
             // Create session cookie
             HttpResponse::Found()

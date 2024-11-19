@@ -23,7 +23,7 @@ use serde::Deserialize;
 
 use crate::{
     auth::{self, Claims},
-    create_user, AppState,
+    database, AppState,
 };
 
 #[derive(Template)]
@@ -48,7 +48,7 @@ pub async fn handle_register_form(
     data: web::Data<AppState>,
     form: web::Form<RegisterForm>,
 ) -> impl Responder {
-    match create_user(&data.db, &form.email, &form.password).await {
+    match database::create_user(&data.db, &form.email, &form.password).await {
         Ok(user_id) => {
             let secret_key = match auth::get_fur_secret_key() {
                 Ok(key) => key,
