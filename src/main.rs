@@ -21,24 +21,19 @@ mod login;
 mod logout;
 mod models;
 mod register;
+mod routes;
 mod sync;
 
-use actix_web::{web, App, HttpResponse, HttpServer};
-use database::*;
-use encryption::{generate_key, show_encryption_setup};
-use login::*;
-use logout::*;
+use actix_web::{web, App, HttpServer};
 use models::AppState;
-use register::*;
 use std::sync::Arc;
-use sync::handle_sync;
 use tracing::error;
 use tracing_subscriber::{self, EnvFilter};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     init_logger();
-    let pool = match db_init().await {
+    let pool = match database::db_init().await {
         Ok(pool) => pool,
         Err(e) => {
             error!("Failed to initialize database: {}", e);
@@ -53,34 +48,11 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
-            // Web interface routes
-            .route("/", web::get().to(determine_root))
-            .route("/login", web::get().to(show_login))
-            .route("/login", web::post().to(handle_login_form))
-            .route("/register", web::get().to(show_register))
-            .route("/register", web::post().to(handle_register_form))
-            .route("/encryption", web::get().to(show_encryption_setup))
-            // API Routes
-            .route("/api/encryption/generate", web::post().to(generate_key))
-            .route("/api/login", web::post().to(login))
-            .route("/api/logout", web::post().to(log_out_client))
-            .route("/api/sync", web::post().to(handle_sync))
+            .configure(routes::configure_routes)
     })
     .bind("127.0.0.1:8662")?
     .run()
     .await
-}
-
-async fn determine_root(state: web::Data<AppState>) -> HttpResponse {
-    match has_any_users(&state.db).await {
-        Ok(true) => HttpResponse::Found()
-            .append_header(("Location", "/login"))
-            .finish(),
-        Ok(false) => HttpResponse::Found()
-            .append_header(("Location", "/register"))
-            .finish(),
-        Err(_) => HttpResponse::InternalServerError().finish(),
-    }
 }
 
 fn init_logger() {
