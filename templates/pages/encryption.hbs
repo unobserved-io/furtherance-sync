@@ -1,0 +1,205 @@
+{{#> base}}
+    {{#*inline "content"}}
+        <h2>Encryption Key Setup</h2>
+
+        {{#if error_msg}}
+        <div class="error">{{error_msg}}</div>
+        {{/if}}
+
+        {{#if success_msg}}
+        <div class="success">{{success_msg}}</div>
+        {{/if}}
+
+        <div class="warning">
+            <strong>Important:</strong>
+            <ul>
+                <li>Your encryption key is used to protect your data.</li>
+                <li>Once generated, the key will only be shown once - you must save it
+                    immediately.</li>
+                <li>Store it somewhere safe - if you lose it, you won't be able to
+                    access your encrypted data.</li>
+                <li>This key is different from your password and cannot be reset.</li>
+            </ul>
+        </div>
+
+        {{#if has_key}}
+            <p>An encryption key is currently set up.</p>
+        {{/if}}
+
+        <div class="button-group">
+            <button type="button" class="button" onclick="handleGenerateClick()">
+                Generate
+                {{#if has_key}}New{{/if}}
+                Key
+            </button>
+        </div>
+
+        <div class="confirmation-dialog" id="confirmationDialog">
+            <div class="warning">
+                <p><strong>Warning:</strong>
+                    Generating a new key will invalidate your existing key. All clients
+                    will need to be updated with the new key.</p>
+                <p>Type "generate" below to confirm:</p>
+                <input
+                    type="text"
+                    id="confirmationInput"
+                    placeholder="Type 'generate' to confirm"
+                />
+                <button onclick="confirmGenerate()" class="button">Confirm</button>
+                <button
+                    onclick="cancelGenerate()"
+                    class="button"
+                    style="background-color: #6c757d;"
+                >Cancel</button>
+            </div>
+        </div>
+
+        <div id="keyModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h3>Your Encryption Key</h3>
+                <div class="warning">
+                    <strong>WARNING: Save this key now!</strong>
+                    <ul>
+                        <li>This is the only time you will see this key.</li>
+                        <li>Store it in a secure password manager or other safe
+                            location.</li>
+                        <li>Without this key, your data cannot be recovered.</li>
+                    </ul>
+                </div>
+                <div class="key-display" id="modalKeyDisplay"></div>
+                <button onclick="closeModal()" class="button">I Have Saved My Key</button>
+            </div>
+        </div>
+
+        <style>
+            .modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 1000;
+            }
+
+            .modal-content {
+                position: relative;
+                background-color: white;
+                margin: 15% auto;
+                padding: 20px;
+                border-radius: 5px;
+                max-width: 500px;
+                width: 90%;
+            }
+
+            .confirmation-dialog {
+                display: none;
+                margin-top: 20px;
+            }
+
+            .key-display {
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 5px;
+                font-family: monospace;
+                margin: 15px 0;
+                word-break: break-all;
+            }
+
+            .close {
+                position: absolute;
+                right: 10px;
+                top: 5px;
+                font-size: 24px;
+                cursor: pointer;
+            }
+
+            .warning {
+                background-color: #fff3cd;
+                border: 1px solid #ffeeba;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 20px 0;
+            }
+
+            .error {
+                background-color: #f8d7da;
+                border: 1px solid #f5c6cb;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 20px 0;
+                color: #721c24;
+            }
+
+            .success {
+                background-color: #d4edda;
+                border: 1px solid #c3e6cb;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 20px 0;
+                color: #155724;
+            }
+        </style>
+
+        <script>
+            function handleGenerateClick() {
+                const hasKey = {{#if has_key}}true{{else}}false{{/if}};
+                if (hasKey) {
+                    document.getElementById('confirmationDialog').style.display = 'block';
+                } else {
+                    generateKey();
+                }
+            }
+
+            async function generateKey(confirmation = null) {
+                try {
+                    const response = await fetch('/api/encryption/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: confirmation ? JSON.stringify({ confirmation }) : null
+                    });
+
+                    const data = await response.json();
+
+                    if (response.status === 400 && data.error === 'confirmation_required') {
+                        document.getElementById('confirmationDialog').style.display = 'block';
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Failed to generate key');
+                    }
+
+                    document.getElementById('modalKeyDisplay').textContent = data.key;
+                    document.getElementById('keyModal').style.display = 'block';
+                    document.getElementById('confirmationDialog').style.display = 'none';
+                } catch (error) {
+                    alert('Error generating key: ' + error.message);
+                }
+            }
+
+            function confirmGenerate() {
+                const confirmationInput = document.getElementById('confirmationInput');
+                if (confirmationInput.value === 'generate') {
+                    generateKey('generate');
+                } else {
+                    alert('Please type "generate" to confirm');
+                }
+            }
+
+            function cancelGenerate() {
+                document.getElementById('confirmationDialog').style.display = 'none';
+                document.getElementById('confirmationInput').value = '';
+            }
+
+            function closeModal() {
+                document.getElementById('keyModal').style.display = 'none';
+                location.reload();
+            }
+        </script>
+    {{/inline}}
+{{/base}}

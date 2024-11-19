@@ -16,6 +16,7 @@
 
 use std::sync::Arc;
 
+use handlebars::Handlebars;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
@@ -35,6 +36,8 @@ pub struct EncryptedShortcut {
     pub last_updated: i64,
 }
 
+#[derive(Clone)]
 pub struct AppState {
     pub db: Arc<PgPool>,
+    pub hb: Arc<Handlebars<'static>>,
 }

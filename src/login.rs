@@ -14,12 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
-
-use actix_web::{cookie::Cookie, http::header, web, HttpResponse, Responder};
-use askama::Template;
+use axum::{
+    extract::State,
+    http::StatusCode,
+    response::{Html, IntoResponse, Redirect, Response},
+    Form, Json,
+};
+use axum_extra::extract::cookie::{Cookie, CookieJar};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use tracing::error;
 
 use crate::{auth, database, models::AppState};
 
@@ -36,91 +39,134 @@ pub struct LoginResponse {
     refresh_token: String,
 }
 
-#[derive(Template)]
-#[template(path = "login.html")]
-struct LoginTemplate {
-    error_msg: Option<String>,
-}
-
 #[derive(Deserialize)]
 pub struct LoginForm {
     email: String,
     password: String,
 }
 
-pub async fn login(data: web::Data<AppState>, login: web::Json<LoginRequest>) -> impl Responder {
-    let (user_id, key_hash) = match database::fetch_user_credentials(&data.db, &login.email).await {
+#[derive(Serialize)]
+struct LoginPageData {
+    error_msg: Option<String>,
+}
+
+pub async fn api_login(State(state): State<AppState>, Json(login): Json<LoginRequest>) -> Response {
+    let (user_id, key_hash) = match database::fetch_user_credentials(&state.db, &login.email).await
+    {
         Ok(Some(credentials)) => match credentials {
             (id, Some(hash)) => (id, hash),
             (_, None) => {
-                return HttpResponse::NotFound().json(json!({
+                return Json(serde_json::json!({
                     "error": "No encryption key found. Generate a key."
                 }))
+                .into_response();
             }
         },
         Ok(None) => {
-            return HttpResponse::Unauthorized().json(json!({
-                "error": "Invalid email or password"
+            return Json(serde_json::json!({
+                "error": "Invalid email or encryption key"
             }))
+            .into_response();
         }
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
     if !bcrypt::verify(&login.encryption_key, &key_hash).unwrap_or(false) {
-        return HttpResponse::Unauthorized().json(json!({
+        return Json(serde_json::json!({
             "error": "Invalid email or encryption key"
-        }));
+        }))
+        .into_response();
     }
 
-    // Generate tokens
     let access_token = match auth::generate_access_token(user_id) {
         Ok(token) => token,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => {
+            return Response::builder()
+                .status(500)
+                .body("Internal Server Error".to_string())
+                .unwrap()
+                .into_response()
+        }
     };
     let refresh_token = auth::generate_refresh_token();
-    let device_id_hash = hash_device_id(&login.device_id);
+    let device_id_hash = crate::login::hash_device_id(&login.device_id);
 
     if let Err(_) =
-        database::store_user_token(&data.db, user_id, &refresh_token, &device_id_hash).await
+        database::store_user_token(&state.db, user_id, &refresh_token, &device_id_hash).await
     {
-        return HttpResponse::InternalServerError().finish();
+        return Response::builder()
+            .status(500)
+            .body("Internal Server Error".to_string())
+            .unwrap()
+            .into_response();
     }
 
-    HttpResponse::Ok().json(LoginResponse {
+    Json(LoginResponse {
         access_token,
         refresh_token,
     })
+    .into_response()
 }
 
-pub async fn show_login(query: web::Query<HashMap<String, String>>) -> impl Responder {
-    let error_msg = query.get("error").map(|e| e.to_string());
-    let html = LoginTemplate { error_msg }.render().unwrap();
-    HttpResponse::Ok().content_type("text/html").body(html)
-}
+pub async fn show_login(State(state): State<AppState>, jar: CookieJar) -> impl IntoResponse {
+    // If already logged in, redirect to encryption page
+    if jar.get("session").is_some() {
+        return Redirect::to("/encryption").into_response();
+    }
 
-pub async fn handle_login_form(
-    data: web::Data<AppState>,
-    form: web::Form<LoginForm>,
-) -> impl Responder {
-    match database::verify_user(&data.db, &form.email, &form.password).await {
-        Ok(Some(user_id)) => {
-            // Create session cookie
-            HttpResponse::Found()
-                .cookie(
-                    Cookie::build("session", user_id.to_string())
-                        .http_only(true)
-                        .secure(true)
-                        .finish(),
-                )
-                .append_header((header::LOCATION, "/encryption"))
-                .finish()
+    let data = LoginPageData { error_msg: None };
+
+    match state.hb.render("login", &data) {
+        Ok(html) => Html(html).into_response(),
+        Err(err) => {
+            error!("Template error: {}", err);
+            Html(format!("Error: {}", err)).into_response()
         }
-        Ok(None) => HttpResponse::Found()
-            .append_header((header::LOCATION, "/login?error=Invalid email or password"))
-            .finish(),
-        Err(_) => HttpResponse::Found()
-            .append_header((header::LOCATION, "/login?error=Internal server error"))
-            .finish(),
+    }
+}
+
+pub async fn handle_login(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Form(form): Form<LoginForm>,
+) -> Response {
+    match database::verify_user(&state.db, &form.email, &form.password).await {
+        Ok(Some(user_id)) => {
+            let mut cookie = Cookie::new("session", user_id.to_string());
+            cookie.set_path("/");
+            cookie.set_secure(true);
+            cookie.set_http_only(true);
+
+            let jar = jar.add(cookie);
+            (jar, Redirect::to("/encryption")).into_response()
+        }
+        Ok(None) => {
+            let data = LoginPageData {
+                error_msg: Some("Invalid email or password".to_string()),
+            };
+
+            match state.hb.render("login", &data) {
+                Ok(html) => Html(html).into_response(),
+                Err(err) => {
+                    error!("Template error: {}", err);
+                    Html(format!("Error: {}", err)).into_response()
+                }
+            }
+        }
+        Err(err) => {
+            error!("Login error: {}", err);
+            let data = LoginPageData {
+                error_msg: Some("An error occurred. Please try again.".to_string()),
+            };
+
+            match state.hb.render("login", &data) {
+                Ok(html) => Html(html).into_response(),
+                Err(err) => {
+                    error!("Template error: {}", err);
+                    Html(format!("Error: {}", err)).into_response()
+                }
+            }
+        }
     }
 }
 

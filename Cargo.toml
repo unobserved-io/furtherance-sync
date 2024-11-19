@@ -3,15 +3,22 @@ name = "furtherance-sync"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["self-hosted"]
+self-hosted = []
+official = []
+
 [dependencies]
-actix-web = "4.0"
 aes-gcm = "0.10"
 argon2 = "0.5"
-askama = { version = "0.12", features = ["serde-json"] }
+# async-stripe = "0.39"
+axum = "0.7"
+axum-extra = { version = "0.9", features = ["cookie"] }
 base64 = "0.22"
 bcrypt = "0.15"
 blake3 = "1.5"
 chrono = { version = "0.4", features = ["alloc", "serde"] }
+handlebars = "6.2"
 jsonwebtoken = "9.3"
 rand = "0.8"
 rusqlite = { version = "0.32", features = [
@@ -29,6 +36,8 @@ sqlx = { version = "0.8", features = [
     "chrono",
 ] }
 tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.11", features = ["v4", "serde"] }

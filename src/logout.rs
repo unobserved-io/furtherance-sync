@@ -14,56 +14,82 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use actix_web::{web, HttpRequest, HttpResponse};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    response::{IntoResponse, Redirect, Response},
+    Json,
+};
+use axum_extra::extract::cookie::{Cookie, CookieJar};
 use serde::Deserialize;
 use tracing::error;
 
-use crate::{auth, database, login, models::AppState};
+use crate::{database, login, AppState};
 
 #[derive(Deserialize)]
 pub struct LogoutRequest {
     device_id: String,
 }
 
-pub async fn log_out_client(
-    data: web::Data<AppState>,
-    logout_data: web::Json<LogoutRequest>,
-    req: HttpRequest,
-) -> HttpResponse {
-    // Extract token from Authorization header
-    let auth_header = match req.headers().get("Authorization") {
+// Web interface logout
+pub async fn handle_logout(State(_): State<AppState>, jar: CookieJar) -> Response {
+    if let Some(session_cookie) = jar.get("session") {
+        if let Ok(_) = session_cookie.value().parse::<i32>() {
+            // Remove the session cookie
+            let mut removal_cookie = Cookie::new("session", "");
+            removal_cookie.set_path("/");
+            let jar = jar.remove(removal_cookie);
+
+            // TODO: invalidate the session in the database???
+            return (jar, Redirect::to("/login")).into_response();
+        }
+    }
+
+    Redirect::to("/login").into_response()
+}
+
+// API logout
+pub async fn api_logout(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Json(logout_data): Json<LogoutRequest>,
+) -> Response {
+    let auth_header = match headers.get("Authorization") {
         Some(header) => match header.to_str() {
             Ok(auth_str) => auth_str.replace("Bearer ", ""),
-            Err(_) => return HttpResponse::Unauthorized().finish(),
+            Err(_) => return StatusCode::UNAUTHORIZED.into_response(),
         },
-        None => return HttpResponse::Unauthorized().finish(),
+        None => return StatusCode::UNAUTHORIZED.into_response(),
     };
 
-    // Verify token and get user_id
-    let user_id = match auth::verify_access_token(&auth_header) {
+    let user_id = match crate::auth::verify_access_token(&auth_header) {
         Ok(id) => id,
-        Err(_) => return HttpResponse::Unauthorized().finish(),
+        Err(_) => return StatusCode::UNAUTHORIZED.into_response(),
     };
 
     let device_id_hash = login::hash_device_id(&logout_data.device_id);
 
     let refresh_token =
-        match database::fetch_refresh_token(&data.db, user_id, &logout_data.device_id).await {
+        match database::fetch_refresh_token(&state.db, user_id, &logout_data.device_id).await {
             Ok(Some(token)) => token,
-            Ok(None) => return HttpResponse::Unauthorized().finish(),
+            Ok(None) => return StatusCode::UNAUTHORIZED.into_response(),
             Err(e) => {
                 error!("Error getting refresh token: {}", e);
-                return HttpResponse::InternalServerError().finish();
+                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
         };
 
-    if let Err(e) = database::delete_user_token(&data.db, user_id, &device_id_hash).await {
+    if let Err(e) = database::delete_user_token(&state.db, user_id, &device_id_hash).await {
         error!("Error deleting user token: {}", e);
     }
 
-    if let Err(e) = database::cleanup_device_tokens(&data.db, user_id, &[refresh_token]).await {
-        error!("Error deleting user token: {}", e);
+    if let Err(e) = database::cleanup_device_tokens(&state.db, user_id, &[refresh_token]).await {
+        error!("Error cleaning up device tokens: {}", e);
     }
 
-    HttpResponse::Ok().into()
+    Json(serde_json::json!({
+        "success": true,
+        "message": "Successfully logged out"
+    }))
+    .into_response()
 }

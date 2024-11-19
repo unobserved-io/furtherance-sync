@@ -1,0 +1,37 @@
+<nav class="sidebar">
+    <div class="sidebar-header">
+        <h1>Furtherance</h1>
+    </div>
+    <ul class="nav-items">
+        <li class="nav-item {{#if (eq active_page "encryption")}}active{{/if}}">
+            <a href="/encryption">Encryption Setup</a>
+        </li>
+        {{#if official}}
+        <li class="nav-item {{#if (eq active_page "billing")}}active{{/if}}">
+            <a href="/billing">Billing</a>
+        </li>
+        {{/if}}
+    </ul>
+    <div class="logout-container">
+        <form action="/logout" method="POST">
+            <button type="submit" class="button">Log Out</button>
+        </form>
+    </div>
+</nav>
+
+<style>
+    .logout-container {
+        padding: 20px;
+        margin-top: auto;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .logout-container .button {
+        width: 100%;
+        background-color: #dc3545;
+    }
+
+    .logout-container .button:hover {
+        background-color: #c82333;
+    }
+</style>
