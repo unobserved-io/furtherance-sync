@@ -16,14 +16,18 @@
 
 mod auth;
 mod database;
+mod email;
 mod encryption;
 mod login;
 mod logout;
 mod models;
+mod password_reset;
 mod register;
 mod routes;
 mod sync;
+mod tasks;
 
+use email::EmailConfig;
 use handlebars::Handlebars;
 use models::AppState;
 use routes::configure_routes;
@@ -44,6 +48,10 @@ async fn main() -> std::io::Result<()> {
             ));
         }
     };
+
+    // Start background tasks
+    #[cfg(feature = "official")]
+    let _ = tasks::start_cleanup_task(pool.clone());
 
     // Initialize Handlebars
     let mut hb = Handlebars::new();
@@ -67,9 +75,14 @@ async fn main() -> std::io::Result<()> {
         .map_err(to_io_error)?;
     let hb = Arc::new(hb);
 
+    #[cfg(feature = "official")]
+    let email_config = EmailConfig::from_env().expect("Failed to load email configuration");
+
     let state = AppState {
         db: pool,
         hb: hb.clone(),
+        #[cfg(feature = "official")]
+        email_config: Arc::new(email_config),
     };
 
     let router = configure_routes(state);

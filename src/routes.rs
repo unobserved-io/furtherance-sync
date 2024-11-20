@@ -22,6 +22,8 @@ use axum::{
 };
 use tower_http::{services::ServeDir, trace::TraceLayer};
 
+#[cfg(feature = "official")]
+use crate::password_reset;
 use crate::{database, encryption, login, logout, models::AppState, register, sync};
 
 pub fn configure_routes(state: AppState) -> Router {
@@ -43,17 +45,24 @@ pub fn configure_routes(state: AppState) -> Router {
         .route("/api/logout", post(logout::api_logout))
         // Serve static files
         .nest_service("/static", ServeDir::new("static"))
-        .layer(TraceLayer::new_for_http())
-        .with_state(state);
+        .layer(TraceLayer::new_for_http());
 
     // Add billing routes for official server
     #[cfg(feature = "official")]
     let app = app
-        .route("/billing", get(billing::show_billing))
-        .route("/api/billing/change-plan", post(billing::change_plan))
-        .route("/api/billing/cancel", post(billing::cancel_subscription));
+        // .route("/billing", get(billing::show_billing))
+        .route(
+            "/forgot-password",
+            get(password_reset::show_forgot_password).post(password_reset::handle_forgot_password),
+        )
+        .route(
+            "/reset-password",
+            get(password_reset::show_reset_password).post(password_reset::handle_reset_password),
+        );
+    // .route("/api/billing/change-plan", post(billing::change_plan))
+    // .route("/api/billing/cancel", post(billing::cancel_subscription));
 
-    app
+    app.with_state(state)
 }
 
 async fn determine_root(state: axum::extract::State<AppState>) -> axum::response::Response {

@@ -48,6 +48,8 @@ pub struct LoginForm {
 #[derive(Serialize)]
 struct LoginPageData {
     error_msg: Option<String>,
+    #[cfg(feature = "official")]
+    official: bool,
 }
 
 pub async fn api_login(State(state): State<AppState>, Json(login): Json<LoginRequest>) -> Response {
@@ -114,7 +116,11 @@ pub async fn show_login(State(state): State<AppState>, jar: CookieJar) -> impl I
         return Redirect::to("/encryption").into_response();
     }
 
-    let data = LoginPageData { error_msg: None };
+    let data = LoginPageData {
+        error_msg: None,
+        #[cfg(feature = "official")]
+        official: true,
+    };
 
     match state.hb.render("login", &data) {
         Ok(html) => Html(html).into_response(),
@@ -143,6 +149,8 @@ pub async fn handle_login(
         Ok(None) => {
             let data = LoginPageData {
                 error_msg: Some("Invalid email or password".to_string()),
+                #[cfg(feature = "official")]
+                official: true,
             };
 
             match state.hb.render("login", &data) {
@@ -157,6 +165,8 @@ pub async fn handle_login(
             error!("Login error: {}", err);
             let data = LoginPageData {
                 error_msg: Some("An error occurred. Please try again.".to_string()),
+                #[cfg(feature = "official")]
+                official: true,
             };
 
             match state.hb.render("login", &data) {

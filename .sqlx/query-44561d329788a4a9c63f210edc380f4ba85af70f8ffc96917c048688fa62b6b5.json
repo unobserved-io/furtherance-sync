@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        CREATE TABLE IF NOT EXISTS password_reset_tokens (\n            id SERIAL PRIMARY KEY,\n            user_id INTEGER REFERENCES users(id),\n            token TEXT NOT NULL UNIQUE,\n            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,\n            used BOOLEAN NOT NULL DEFAULT FALSE,\n            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP\n        );",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "44561d329788a4a9c63f210edc380f4ba85af70f8ffc96917c048688fa62b6b5"
+}

@@ -20,6 +20,8 @@ use handlebars::Handlebars;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
+use crate::email::EmailConfig;
+
 #[derive(Serialize, Deserialize)]
 pub struct EncryptedTask {
     pub encrypted_data: String,
@@ -40,4 +42,6 @@ pub struct EncryptedShortcut {
 pub struct AppState {
     pub db: Arc<PgPool>,
     pub hb: Arc<Handlebars<'static>>,
+    #[cfg(feature = "official")]
+    pub email_config: Arc<EmailConfig>,
 }

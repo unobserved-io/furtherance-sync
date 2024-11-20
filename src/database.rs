@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
 use std::error::Error;
 use tracing::error;
@@ -57,6 +58,20 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(user_id, device_id_hash)
             );"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            token TEXT NOT NULL UNIQUE,
+            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            used BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );"#,
     )
     .execute(&pool)
     .await?;
@@ -608,4 +623,119 @@ pub async fn fetch_refresh_token(
     .await?;
 
     Ok(result.map(|r| r.refresh_token))
+}
+
+#[cfg(feature = "official")]
+pub async fn get_user_id_by_email(pool: &PgPool, email: &str) -> Result<Option<i32>, sqlx::Error> {
+    let record = sqlx::query!(
+        r#"
+        SELECT id
+        FROM users
+        WHERE email = $1
+        "#,
+        email
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(record.map(|r| r.id))
+}
+
+#[cfg(feature = "official")]
+pub async fn store_reset_token(
+    pool: &PgPool,
+    user_id: i32,
+    token: &str,
+    expires_at: DateTime<Utc>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        INSERT INTO password_reset_tokens (user_id, token, expires_at)
+        VALUES ($1, $2, $3)
+        "#,
+        user_id,
+        token,
+        expires_at,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+#[cfg(feature = "official")]
+pub async fn verify_reset_token(pool: &PgPool, token: &str) -> Result<Option<i32>, sqlx::Error> {
+    let record = sqlx::query!(
+        r#"
+        SELECT user_id
+        FROM password_reset_tokens
+        WHERE token = $1
+        AND expires_at > CURRENT_TIMESTAMP
+        AND used = false
+        "#,
+        token
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(record.and_then(|r| r.user_id))
+}
+
+#[cfg(feature = "official")]
+pub async fn mark_reset_token_used(pool: &PgPool, token: &str) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE password_reset_tokens
+        SET used = true
+        WHERE token = $1
+        "#,
+        token
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+#[cfg(feature = "official")]
+pub async fn update_password(
+    pool: &PgPool,
+    user_id: i32,
+    new_password: &str,
+) -> Result<(), sqlx::Error> {
+    let password_hash = bcrypt::hash(new_password.as_bytes(), bcrypt::DEFAULT_COST)
+        .map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
+
+    sqlx::query!(
+        r#"
+        UPDATE users
+        SET password_hash = $1
+        WHERE id = $2
+        "#,
+        password_hash,
+        user_id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+#[cfg(feature = "official")]
+pub async fn cleanup_reset_tokens(pool: &PgPool) -> Result<u64, sqlx::Error> {
+    // Delete tokens that are:
+    // 1. Expired and unused (older than 1 hour)
+    // 2. Used and older than 30 days
+    let result = sqlx::query!(
+        r#"
+        DELETE FROM password_reset_tokens
+        WHERE (expires_at < CURRENT_TIMESTAMP - INTERVAL '1 hour' AND used = false)
+        OR (created_at < CURRENT_TIMESTAMP - INTERVAL '30 days' AND used = true)
+        RETURNING id
+        "#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(result.len() as u64)
 }
