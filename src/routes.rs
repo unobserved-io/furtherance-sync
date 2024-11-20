@@ -1,50 +1,65 @@
-// use actix_web::{web, HttpResponse};
+// Furtherance Sync
+// Copyright (C) 2024  Ricky Kresslein <rk@unobserved.io>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// use crate::{
-//     encryption::{generate_key, show_encryption_setup},
-//     has_any_users,
-//     login::{handle_login_form, login, show_login},
-//     logout::log_out_client,
-//     models::AppState,
-//     register::{handle_register_form, show_register},
-//     sync::handle_sync,
-// };
+use axum::{
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, post},
+    Router,
+};
+use tower_http::{services::ServeDir, trace::TraceLayer};
 
-// pub fn configure_routes(cfg: &mut web::ServiceConfig) {
-//     cfg.service(
-//         web::scope("")
-//             // Web routes
-//             .route("/", web::get().to(determine_root))
-//             .route("/login", web::get().to(show_login))
-//             .route("/login", web::post().to(handle_login_form))
-//             .route("/register", web::get().to(show_register))
-//             .route("/register", web::post().to(handle_register_form))
-//             .route("/encryption", web::get().to(show_encryption_setup))
-//             // API Routes
-//             .route("/api/encryption/generate", web::post().to(generate_key))
-//             .route("/api/login", web::post().to(login))
-//             .route("/api/logout", web::post().to(log_out_client))
-//             .route("/api/sync", web::post().to(handle_sync)),
-//     );
+use crate::{database, encryption, login, logout, models::AppState, register, sync};
 
-//     // #[cfg(feature = "official")]
-//     // cfg.service(
-//     //     web::scope("")
-//     //         .route(
-//     //             "/subscription",
-//     //             web::get().to(super::subscription::show_subscription),
-//     //         )
-//     // );
-// }
+pub fn configure_routes(state: AppState) -> Router {
+    let app = Router::new()
+        .route("/", get(determine_root))
+        // Web interface routes
+        .route(
+            "/register",
+            get(register::show_register).post(register::handle_register),
+        )
+        .route("/login", get(login::show_login).post(login::handle_login))
+        .route("/logout", post(logout::handle_logout))
+        .route("/encryption", get(encryption::show_encryption))
+        // API routes
+        .route("/api/register", post(register::api_register))
+        .route("/api/login", post(login::api_login))
+        .route("/api/encryption/generate", post(encryption::generate_key))
+        .route("/api/sync", post(sync::handle_sync))
+        .route("/api/logout", post(logout::api_logout))
+        // Serve static files
+        .nest_service("/static", ServeDir::new("static"))
+        .layer(TraceLayer::new_for_http())
+        .with_state(state);
 
-// async fn determine_root(state: web::Data<AppState>) -> HttpResponse {
-//     match has_any_users(&state.db).await {
-//         Ok(true) => HttpResponse::Found()
-//             .append_header(("Location", "/login"))
-//             .finish(),
-//         Ok(false) => HttpResponse::Found()
-//             .append_header(("Location", "/register"))
-//             .finish(),
-//         Err(_) => HttpResponse::InternalServerError().finish(),
-//     }
-// }
+    // Add billing routes for official server
+    #[cfg(feature = "official")]
+    let app = app
+        .route("/billing", get(billing::show_billing))
+        .route("/api/billing/change-plan", post(billing::change_plan))
+        .route("/api/billing/cancel", post(billing::cancel_subscription));
+
+    app
+}
+
+async fn determine_root(state: axum::extract::State<AppState>) -> axum::response::Response {
+    match database::has_any_users(&state.db).await {
+        Ok(true) => axum::response::Redirect::to("/login").into_response(),
+        Ok(false) => axum::response::Redirect::to("/register").into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}

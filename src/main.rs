@@ -24,16 +24,10 @@ mod register;
 mod routes;
 mod sync;
 
-use axum::{
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, post},
-    Router,
-};
 use handlebars::Handlebars;
 use models::AppState;
+use routes::configure_routes;
 use std::sync::Arc;
-use tower_http::{services::ServeDir, trace::TraceLayer};
 use tracing::{error, info};
 use tracing_subscriber::{self, EnvFilter};
 
@@ -78,40 +72,14 @@ async fn main() -> std::io::Result<()> {
         hb: hb.clone(),
     };
 
-    let app = Router::new()
-        .route("/", get(determine_root))
-        // Web interface routes
-        .route(
-            "/register",
-            get(register::show_register).post(register::handle_register),
-        )
-        .route("/login", get(login::show_login).post(login::handle_login))
-        .route("/logout", post(logout::handle_logout))
-        .route("/encryption", get(encryption::show_encryption))
-        // API routes
-        .route("/api/register", post(register::api_register))
-        .route("/api/login", post(login::api_login))
-        .route("/api/encryption/generate", post(encryption::generate_key))
-        .route("/api/sync", post(sync::handle_sync))
-        .route("/api/logout", post(logout::api_logout))
-        // Serve static files
-        .nest_service("/static", ServeDir::new("static"))
-        .layer(TraceLayer::new_for_http())
-        .with_state(state);
-
-    // Add billing routes for official server
-    #[cfg(feature = "official")]
-    let app = app
-        .route("/billing", get(billing::show_billing))
-        .route("/api/billing/change-plan", post(billing::change_plan))
-        .route("/api/billing/cancel", post(billing::cancel_subscription));
+    let router = configure_routes(state);
 
     let server = "127.0.0.1:8662";
 
     let listener = tokio::net::TcpListener::bind(&server).await?;
     info!("Server running on {}", &server);
 
-    axum::serve(listener, app).await?;
+    axum::serve(listener, router).await?;
     Ok(())
 }
 
@@ -123,14 +91,6 @@ fn init_logger() {
                 .add_directive(tracing::Level::ERROR.into()),
         )
         .init();
-}
-
-async fn determine_root(state: axum::extract::State<AppState>) -> axum::response::Response {
-    match database::has_any_users(&state.db).await {
-        Ok(true) => axum::response::Redirect::to("/login").into_response(),
-        Ok(false) => axum::response::Redirect::to("/register").into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
 }
 
 fn to_io_error<E>(err: E) -> std::io::Error
