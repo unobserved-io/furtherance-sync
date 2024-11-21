@@ -37,6 +37,7 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     };
     let pool = PgPool::connect(&database_url).await?;
 
+    #[cfg(not(feature = "official"))]
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS users (
@@ -45,6 +46,24 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             password_hash VARCHAR(255) NOT NULL,
             encryption_key_hash VARCHAR(255),
             encryption_key_version INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    #[cfg(feature = "official")]
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            encryption_key_hash VARCHAR(255),
+            encryption_key_version INTEGER NOT NULL DEFAULT 0,
+            stripe_customer_id VARCHAR(255),
+            subscription_status VARCHAR(50),
+            subscription_end_date TIMESTAMP WITH TIME ZONE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );"#,
     )
@@ -819,4 +838,27 @@ pub async fn mark_temp_registration_used(
     .await?;
 
     Ok(())
+}
+
+#[cfg(feature = "official")]
+pub async fn create_user_with_stripe(
+    pool: &PgPool,
+    email: &str,
+    password_hash: &str,
+    stripe_customer_id: &str,
+) -> Result<i32, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        INSERT INTO users (email, password_hash, stripe_customer_id)
+        VALUES ($1, $2, $3)
+        RETURNING id
+        "#,
+        email,
+        password_hash,
+        stripe_customer_id,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(result.id)
 }

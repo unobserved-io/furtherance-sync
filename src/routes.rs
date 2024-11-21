@@ -24,7 +24,7 @@ use tower_http::{services::ServeDir, trace::TraceLayer};
 
 #[cfg(feature = "official")]
 use crate::password_reset;
-use crate::{database, encryption, login, logout, models::AppState, register, sync};
+use crate::{billing, database, encryption, login, logout, models::AppState, register, sync};
 
 pub fn configure_routes(state: AppState) -> Router {
     let app = Router::new()
@@ -61,7 +61,9 @@ pub fn configure_routes(state: AppState) -> Router {
         .route(
             "/register/complete",
             get(register::handle_registration_complete),
-        );
+        )
+        // Webhooks
+        .route("/stripe-webhook", post(billing::handle_stripe_webhook));
 
     app.with_state(state)
 }

@@ -19,7 +19,6 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     Form, Json,
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
@@ -70,18 +69,19 @@ pub struct TempRegistration {
     pub verification_token: String,
 }
 
-#[derive(Serialize)]
-struct StripeRegistrationData {
-    email: String,
-    password_hash: String,
-    created_at: DateTime<Utc>,
-    verification_token: String, // To verify when returning from Stripe
-}
+// TODO: Erase
+// #[derive(Serialize)]
+// struct StripeRegistrationData {
+//     email: String,
+//     password_hash: String,
+//     created_at: DateTime<Utc>,
+//     verification_token: String, // To verify when returning from Stripe
+// }
 
-#[derive(Serialize)]
-struct StripeCheckoutResponse {
-    checkout_url: String,
-}
+// #[derive(Serialize)]
+// struct StripeCheckoutResponse {
+//     checkout_url: String,
+// }
 
 // Web interface handlers
 pub async fn show_register(State(state): State<AppState>) -> impl IntoResponse {

@@ -28,7 +28,7 @@ mod sync;
 mod tasks;
 
 #[cfg(feature = "official")]
-mod stripe_integration;
+mod billing;
 
 use email::EmailConfig;
 use handlebars::Handlebars;
@@ -66,9 +66,6 @@ async fn main() -> std::io::Result<()> {
     hb.register_template_file("login", "templates/pages/login.hbs")
         .map_err(to_io_error)?;
     hb.register_template_file("register", "templates/pages/register.hbs")
-        .map_err(to_io_error)?;
-    #[cfg(feature = "official")]
-    hb.register_template_file("billing", "templates/pages/billing.hbs")
         .map_err(to_io_error)?;
     // Register partials
     hb.register_template_file("nav", "templates/partials/nav.hbs")

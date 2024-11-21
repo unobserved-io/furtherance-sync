@@ -6,11 +6,6 @@
         <li class="nav-item {{#if (eq active_page "encryption")}}active{{/if}}">
             <a href="/encryption">Encryption Setup</a>
         </li>
-        {{#if official}}
-        <li class="nav-item {{#if (eq active_page "billing")}}active{{/if}}">
-            <a href="/billing">Billing</a>
-        </li>
-        {{/if}}
     </ul>
     <div class="logout-container">
         <form action="/logout" method="POST">
