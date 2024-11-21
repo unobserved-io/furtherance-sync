@@ -24,6 +24,9 @@ use crate::{
     models::{EncryptedShortcut, EncryptedTask},
 };
 
+#[cfg(feature = "official")]
+use crate::register::TempRegistration;
+
 pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     let database_url = match std::env::var("DATABASE_URL") {
         Ok(url) => url,
@@ -70,6 +73,22 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             token TEXT NOT NULL UNIQUE,
             expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
             used BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    #[cfg(feature = "official")]
+    sqlx::query!(
+        r#"
+        CREATE TABLE IF NOT EXISTS temporary_registrations (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            verification_token VARCHAR(255) UNIQUE NOT NULL,
+            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            used BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );"#,
     )
@@ -738,4 +757,47 @@ pub async fn cleanup_reset_tokens(pool: &PgPool) -> Result<u64, sqlx::Error> {
     .await?;
 
     Ok(result.len() as u64)
+}
+
+#[cfg(feature = "official")]
+pub async fn store_temporary_registration(
+    pool: &PgPool,
+    email: &str,
+    password_hash: &str,
+    verification_token: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        INSERT INTO temporary_registrations
+            (email, password_hash, verification_token, expires_at)
+        VALUES ($1, $2, $3, NOW() + INTERVAL '1 hour')
+        "#,
+        email,
+        password_hash,
+        verification_token,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+#[cfg(feature = "official")]
+pub async fn get_temporary_registration(
+    pool: &PgPool,
+    verification_token: &str,
+) -> Result<Option<TempRegistration>, sqlx::Error> {
+    sqlx::query_as!(
+        TempRegistration,
+        r#"
+        SELECT email, password_hash, verification_token
+        FROM temporary_registrations
+        WHERE verification_token = $1
+        AND expires_at > NOW()
+        AND used = false
+        "#,
+        verification_token
+    )
+    .fetch_optional(pool)
+    .await
 }

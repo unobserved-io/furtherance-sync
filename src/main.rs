@@ -27,6 +27,9 @@ mod routes;
 mod sync;
 mod tasks;
 
+#[cfg(feature = "official")]
+mod stripe_integration;
+
 use email::EmailConfig;
 use handlebars::Handlebars;
 use models::AppState;

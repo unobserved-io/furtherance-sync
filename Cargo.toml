@@ -11,7 +11,7 @@ official = []
 [dependencies]
 aes-gcm = "0.10"
 argon2 = "0.5"
-# async-stripe = "0.39"
+async-stripe = { version = "0.39.1", features = ["runtime-tokio-hyper"] }
 axum = "0.7"
 axum-extra = { version = "0.9", features = ["cookie"] }
 base64 = "0.22"
@@ -41,4 +41,5 @@ tower = "0.5"
 tower-http = { version = "0.6", features = ["fs", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+urlencoding = "2.1"
 uuid = { version = "1.11", features = ["v4", "serde"] }

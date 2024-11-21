@@ -19,6 +19,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     Form, Json,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
@@ -48,6 +49,29 @@ pub struct RegisterForm {
 struct RegisterPageData {
     error_msg: Option<String>,
     success_msg: Option<String>,
+    #[cfg(feature = "official")]
+    official: bool,
+}
+
+#[cfg(feature = "official")]
+#[derive(Debug)]
+pub struct TempRegistration {
+    pub email: String,
+    pub password_hash: String,
+    pub verification_token: String,
+}
+
+#[derive(Serialize)]
+struct StripeRegistrationData {
+    email: String,
+    password_hash: String,
+    created_at: DateTime<Utc>,
+    verification_token: String, // To verify when returning from Stripe
+}
+
+#[derive(Serialize)]
+struct StripeCheckoutResponse {
+    checkout_url: String,
 }
 
 // Web interface handlers
@@ -55,6 +79,8 @@ pub async fn show_register(State(state): State<AppState>) -> impl IntoResponse {
     let data = RegisterPageData {
         error_msg: None,
         success_msg: None,
+        #[cfg(feature = "official")]
+        official: true,
     };
 
     match state.hb.render("register", &data) {
@@ -75,27 +101,50 @@ pub async fn handle_register(
         let data = RegisterPageData {
             error_msg: Some("Password must be at least 8 characters long".to_string()),
             success_msg: None,
+            #[cfg(feature = "official")]
+            official: true,
         };
         return render_register_page(&state, data);
     }
 
-    match database::create_user(&state.db, &form.email, &form.password).await {
-        Ok(_) => {
-            // Redirect to login page with success message
-            Redirect::to("/login?message=Registration successful").into_response()
-        }
-        Err(err) => {
-            let error_msg = if err.to_string().contains("unique constraint") {
-                "Email already registered".to_string()
-            } else {
-                "Registration failed. Please try again.".to_string()
-            };
-
-            let data = RegisterPageData {
-                error_msg: Some(error_msg),
+    if let Ok(Some(_)) = database::get_user_id_by_email(&state.db, &form.email).await {
+        return render_register_page(
+            &state,
+            RegisterPageData {
+                error_msg: Some("Email already registered".to_string()),
                 success_msg: None,
-            };
-            render_register_page(&state, data)
+                #[cfg(feature = "official")]
+                official: true,
+            },
+        );
+    }
+
+    #[cfg(feature = "official")]
+    {
+        // Official version - handle Stripe registration flow
+        handle_official_registration(state, form).await
+    }
+
+    #[cfg(not(feature = "official"))]
+    {
+        // Self-hosted version - direct registration
+        match database::create_user(&state.db, &form.email, &form.password).await {
+            Ok(_) => Redirect::to("/login?message=Registration successful").into_response(),
+            Err(err) => {
+                let error_msg = if err.to_string().contains("unique constraint") {
+                    "Email already registered".to_string()
+                } else {
+                    "Registration failed. Please try again.".to_string()
+                };
+
+                render_register_page(
+                    &state,
+                    RegisterPageData {
+                        error_msg: Some(error_msg),
+                        success_msg: None,
+                    },
+                )
+            }
         }
     }
 }
@@ -141,4 +190,61 @@ fn render_register_page(state: &AppState, data: RegisterPageData) -> Response {
             Html(format!("Error: {}", err)).into_response()
         }
     }
+}
+
+#[cfg(feature = "official")]
+async fn handle_official_registration(state: AppState, form: RegisterForm) -> Response {
+    use uuid::Uuid;
+
+    // Hash password early to avoid storing plaintext
+    let password_hash = match bcrypt::hash(form.password.as_bytes(), bcrypt::DEFAULT_COST) {
+        Ok(hash) => hash,
+        Err(_) => {
+            return render_register_page(
+                &state,
+                RegisterPageData {
+                    error_msg: Some("Error processing registration".to_string()),
+                    success_msg: None,
+                    official: true,
+                },
+            )
+        }
+    };
+
+    // Generate verification token
+    let verification_token = Uuid::new_v4().to_string();
+
+    if let Err(_) = database::store_temporary_registration(
+        &state.db,
+        &form.email,
+        &password_hash,
+        &verification_token,
+    )
+    .await
+    {
+        return render_register_page(
+            &state,
+            RegisterPageData {
+                error_msg: Some("Error processing registration".to_string()),
+                success_msg: None,
+                official: true,
+            },
+        );
+    }
+
+    // Construct Stripe payment link with parameters
+    let stripe_url = format!(
+        "https://buy.stripe.com/9AQdSY78F62CaZy3cc\
+            ?prefilled_email={}\
+            &client_reference_id={}\
+            &success_url={}",
+        urlencoding::encode(&form.email),
+        urlencoding::encode(&verification_token),
+        urlencoding::encode(&format!(
+            "https://sync.furtherance.app/register/complete?token={}",
+            verification_token
+        ))
+    );
+
+    Redirect::to(&stripe_url).into_response()
 }
