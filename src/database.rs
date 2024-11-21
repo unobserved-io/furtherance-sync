@@ -801,3 +801,22 @@ pub async fn get_temporary_registration(
     .fetch_optional(pool)
     .await
 }
+
+#[cfg(feature = "official")]
+pub async fn mark_temp_registration_used(
+    pool: &PgPool,
+    verification_token: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE temporary_registrations
+        SET used = true
+        WHERE verification_token = $1
+        "#,
+        verification_token
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}

@@ -23,6 +23,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
+#[cfg(feature = "official")]
+use axum::extract::Query;
+
 use crate::{database, AppState};
 
 // API registration structures
@@ -51,6 +54,12 @@ struct RegisterPageData {
     success_msg: Option<String>,
     #[cfg(feature = "official")]
     official: bool,
+}
+
+#[cfg(feature = "official")]
+#[derive(Deserialize)]
+pub struct RegistrationCompleteParams {
+    token: String,
 }
 
 #[cfg(feature = "official")]
@@ -232,7 +241,7 @@ async fn handle_official_registration(state: AppState, form: RegisterForm) -> Re
         );
     }
 
-    // Construct Stripe payment link with parameters
+    // Construct Stripe payment link
     let stripe_url = format!(
         "https://buy.stripe.com/9AQdSY78F62CaZy3cc\
             ?prefilled_email={}\
@@ -247,4 +256,36 @@ async fn handle_official_registration(state: AppState, form: RegisterForm) -> Re
     );
 
     Redirect::to(&stripe_url).into_response()
+}
+
+#[cfg(feature = "official")]
+pub async fn handle_registration_complete(
+    State(state): State<AppState>,
+    params: Query<RegistrationCompleteParams>,
+) -> Response {
+    let params: RegistrationCompleteParams = params.0;
+    // Get the temporary registration data
+    let temp_reg = match database::get_temporary_registration(&state.db, &params.token).await {
+        Ok(Some(reg)) => reg,
+        Ok(None) => return Redirect::to("/register?error=expired_token").into_response(),
+        Err(e) => {
+            error!("Database error: {}", e);
+            return Redirect::to("/register?error=server_error").into_response();
+        }
+    };
+
+    // Create the user account first
+    if let Err(e) = database::create_user(&state.db, &temp_reg.email, &temp_reg.password_hash).await
+    {
+        error!("Failed to create user account: {}", e);
+        return Redirect::to("/register?error=registration_failed").into_response();
+    }
+
+    // Then mark the registration as used
+    if let Err(e) = database::mark_temp_registration_used(&state.db, &params.token).await {
+        error!("Failed to mark temporary registration as used: {}", e);
+        // Continue anyway as the user account was created
+    }
+
+    Redirect::to("/login?message=Registration successful").into_response()
 }

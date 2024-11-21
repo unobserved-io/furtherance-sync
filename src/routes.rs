@@ -50,7 +50,6 @@ pub fn configure_routes(state: AppState) -> Router {
     // Add billing routes for official server
     #[cfg(feature = "official")]
     let app = app
-        // .route("/billing", get(billing::show_billing))
         .route(
             "/forgot-password",
             get(password_reset::show_forgot_password).post(password_reset::handle_forgot_password),
@@ -58,9 +57,11 @@ pub fn configure_routes(state: AppState) -> Router {
         .route(
             "/reset-password",
             get(password_reset::show_reset_password).post(password_reset::handle_reset_password),
+        )
+        .route(
+            "/register/complete",
+            get(register::handle_registration_complete),
         );
-    // .route("/api/billing/change-plan", post(billing::change_plan))
-    // .route("/api/billing/cancel", post(billing::cancel_subscription));
 
     app.with_state(state)
 }
