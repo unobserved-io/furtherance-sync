@@ -22,9 +22,6 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-#[cfg(feature = "official")]
-use axum::extract::Query;
-
 use crate::{database, AppState};
 
 // API registration structures
@@ -68,20 +65,6 @@ pub struct TempRegistration {
     pub password_hash: String,
     pub verification_token: String,
 }
-
-// TODO: Erase
-// #[derive(Serialize)]
-// struct StripeRegistrationData {
-//     email: String,
-//     password_hash: String,
-//     created_at: DateTime<Utc>,
-//     verification_token: String, // To verify when returning from Stripe
-// }
-
-// #[derive(Serialize)]
-// struct StripeCheckoutResponse {
-//     checkout_url: String,
-// }
 
 // Web interface handlers
 pub async fn show_register(State(state): State<AppState>) -> impl IntoResponse {
@@ -205,6 +188,21 @@ fn render_register_page(state: &AppState, data: RegisterPageData) -> Response {
 async fn handle_official_registration(state: AppState, form: RegisterForm) -> Response {
     use uuid::Uuid;
 
+    // Get Stripe payment URL from environment
+    let stripe_base_url = match std::env::var("STRIPE_PAYMENT_URL") {
+        Ok(url) => url,
+        Err(_) => {
+            return render_register_page(
+                &state,
+                RegisterPageData {
+                    error_msg: Some("Error fetching STRIPE_PAYMENT_URL".to_string()),
+                    success_msg: None,
+                    official: true,
+                },
+            )
+        }
+    };
+
     // Hash password early to avoid storing plaintext
     let password_hash = match bcrypt::hash(form.password.as_bytes(), bcrypt::DEFAULT_COST) {
         Ok(hash) => hash,
@@ -222,6 +220,7 @@ async fn handle_official_registration(state: AppState, form: RegisterForm) -> Re
 
     // Generate verification token
     let verification_token = Uuid::new_v4().to_string();
+    println!("{}", verification_token);
 
     if let Err(_) = database::store_temporary_registration(
         &state.db,
@@ -243,49 +242,11 @@ async fn handle_official_registration(state: AppState, form: RegisterForm) -> Re
 
     // Construct Stripe payment link
     let stripe_url = format!(
-        "https://buy.stripe.com/9AQdSY78F62CaZy3cc\
-            ?prefilled_email={}\
-            &client_reference_id={}\
-            &success_url={}",
+        "{}?prefilled_email={}&client_reference_id={}",
+        stripe_base_url,
         urlencoding::encode(&form.email),
         urlencoding::encode(&verification_token),
-        urlencoding::encode(&format!(
-            "https://sync.furtherance.app/register/complete?token={}",
-            verification_token
-        ))
     );
 
     Redirect::to(&stripe_url).into_response()
-}
-
-#[cfg(feature = "official")]
-pub async fn handle_registration_complete(
-    State(state): State<AppState>,
-    params: Query<RegistrationCompleteParams>,
-) -> Response {
-    let params: RegistrationCompleteParams = params.0;
-    // Get the temporary registration data
-    let temp_reg = match database::get_temporary_registration(&state.db, &params.token).await {
-        Ok(Some(reg)) => reg,
-        Ok(None) => return Redirect::to("/register?error=expired_token").into_response(),
-        Err(e) => {
-            error!("Database error: {}", e);
-            return Redirect::to("/register?error=server_error").into_response();
-        }
-    };
-
-    // Create the user account first
-    if let Err(e) = database::create_user(&state.db, &temp_reg.email, &temp_reg.password_hash).await
-    {
-        error!("Failed to create user account: {}", e);
-        return Redirect::to("/register?error=registration_failed").into_response();
-    }
-
-    // Then mark the registration as used
-    if let Err(e) = database::mark_temp_registration_used(&state.db, &params.token).await {
-        error!("Failed to mark temporary registration as used: {}", e);
-        // Continue anyway as the user account was created
-    }
-
-    Redirect::to("/login?message=Registration successful").into_response()
 }
