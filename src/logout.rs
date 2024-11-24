@@ -41,7 +41,7 @@ pub async fn handle_logout(State(_): State<AppState>, jar: CookieJar) -> Respons
             let jar = jar.remove(removal_cookie);
 
             // TODO: invalidate the session in the database???
-            return (jar, Redirect::to("/login")).into_response();
+            return (jar, Redirect::to("/login?message=logout_success")).into_response();
         }
     }
 
