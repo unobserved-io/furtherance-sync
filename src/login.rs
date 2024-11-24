@@ -164,6 +164,10 @@ pub async fn handle_login(
             cookie.set_path("/");
             cookie.set_secure(true);
             cookie.set_http_only(true);
+            cookie.set_max_age(Some(time::Duration::days(30)));
+            cookie.set_expires(Some(
+                time::OffsetDateTime::now_utc() + time::Duration::days(30),
+            ));
 
             let jar = jar.add(cookie);
             (jar, Redirect::to("/encryption")).into_response()
