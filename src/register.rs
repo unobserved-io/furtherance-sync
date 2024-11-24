@@ -53,12 +53,7 @@ struct RegisterPageData {
 }
 
 #[cfg(feature = "official")]
-#[derive(Deserialize)]
-pub struct RegistrationCompleteParams {
-    token: String,
-}
-
-#[cfg(feature = "official")]
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct TempRegistration {
     pub email: String,

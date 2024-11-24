@@ -70,11 +70,6 @@ pub async fn handle_stripe_webhook(
                 None => return StatusCode::BAD_REQUEST.into_response(),
             };
 
-            let customer_email = match session.customer_email {
-                Some(email) => email,
-                None => return StatusCode::BAD_REQUEST.into_response(),
-            };
-
             let verification_token = match session.client_reference_id {
                 Some(token) => token,
                 None => return StatusCode::BAD_REQUEST.into_response(),
