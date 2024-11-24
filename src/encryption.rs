@@ -16,7 +16,7 @@
 
 use axum::{
     extract::{Json, State},
-    response::Html,
+    response::{Html, IntoResponse, Redirect},
 };
 use axum_extra::extract::CookieJar;
 use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
@@ -47,13 +47,13 @@ pub struct GenerateKeyResponse {
     key: String,
 }
 
-pub async fn show_encryption(State(state): State<AppState>, jar: CookieJar) -> Html<String> {
+pub async fn show_encryption(State(state): State<AppState>, jar: CookieJar) -> impl IntoResponse {
     let user_id = match jar
         .get("session")
         .and_then(|c| c.value().parse::<i32>().ok())
     {
         Some(id) => id,
-        None => return Html(render_error(&state, "Not authenticated")),
+        None => return Redirect::to("/login?message=session_expired").into_response(),
     };
 
     let has_key = database::fetch_encryption_key(&state.db, user_id)
@@ -72,10 +72,10 @@ pub async fn show_encryption(State(state): State<AppState>, jar: CookieJar) -> H
     };
 
     match state.hb.render("encryption", &data) {
-        Ok(html) => Html(html),
+        Ok(html) => Html(html).into_response(),
         Err(err) => {
             error!("Template error: {}", err);
-            Html(render_error(&state, "Template error"))
+            Html(render_error(&state, "Template error")).into_response()
         }
     }
 }

@@ -123,18 +123,22 @@ pub async fn show_login(
         return Redirect::to("/encryption").into_response();
     }
 
-    let success_msg = match params.get("message").map(|s| s.as_str()) {
-        Some("registration_success") => Some("Registration successful! Please log in.".to_string()),
-        Some("password_reset") => Some("Password reset. Please log in.".to_string()),
-        Some("logout_success") => Some("You have been logged out.".to_string()),
+    let error_msg = match params.get("message").map(|s| s.as_str()) {
         Some("session_expired") => {
             Some("Your session has expired. Please log in again.".to_string())
         }
         _ => None,
     };
 
+    let success_msg = match params.get("message").map(|s| s.as_str()) {
+        Some("registration_success") => Some("Registration successful! Please log in.".to_string()),
+        Some("password_reset") => Some("Password reset. Please log in.".to_string()),
+        Some("logout_success") => Some("You have been logged out.".to_string()),
+        _ => None,
+    };
+
     let data = LoginPageData {
-        error_msg: None,
+        error_msg,
         success_msg,
         #[cfg(feature = "official")]
         official: true,
