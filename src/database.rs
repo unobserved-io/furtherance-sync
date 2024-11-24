@@ -908,3 +908,25 @@ pub async fn update_subscription_status(
 
     Ok(())
 }
+
+#[cfg(feature = "official")]
+pub async fn is_subscription_active(pool: &PgPool, user_id: i32) -> Result<bool, sqlx::Error> {
+    let record = sqlx::query!(
+        r#"
+        SELECT subscription_status
+        FROM users
+        WHERE id = $1
+        "#,
+        user_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(match record {
+        Some(r) => matches!(
+            r.subscription_status.as_deref(),
+            Some("active") | Some("trialing")
+        ),
+        None => false,
+    })
+}

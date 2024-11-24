@@ -88,6 +88,23 @@ pub async fn handle_sync(
         Err(_) => return StatusCode::UNAUTHORIZED.into_response(),
     };
 
+    // If on the official server, make sure the user's subscription is active
+    #[cfg(feature = "official")]
+    match is_subscription_active(&state.db, user_id).await {
+        Ok(true) => (),
+        Ok(false) => {
+            return Json(serde_json::json!({
+                "error": "inactive_subscription",
+                "message": "Your subscription is not active"
+            }))
+            .into_response();
+        }
+        Err(e) => {
+            error!("Error checking subscription status: {}", e);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    }
+
     // Get refresh token for this device
     let refresh_token = match fetch_refresh_token(&state.db, user_id, &sync_data.device_id).await {
         Ok(Some(token)) => token,
@@ -188,5 +205,5 @@ pub async fn handle_sync(
         response.orphaned_shortcuts.len()
     );
 
-    StatusCode::OK.into_response()
+    Json(response).into_response()
 }
