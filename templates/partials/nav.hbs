@@ -4,34 +4,74 @@
     </div>
     <ul class="nav-items">
         <li class="nav-item {{#if (eq active_page "encryption")}}active{{/if}}">
-            <a href="/encryption">Encryption Setup</a>
+            <a href="/encryption">Encryption</a>
         </li>
         {{#if official}}
         <li class="nav-item">
-            <a href="/customer-portal">Manage Subscription</a>
+            <a href="/customer-portal">Billing</a>
         </li>
         {{/if}}
     </ul>
     <div class="logout-container">
         <form action="/logout" method="POST">
-            <button type="submit" class="button">Log Out</button>
+            <button type="submit" class="logout-link">Log out</button>
         </form>
     </div>
 </nav>
 
 <style>
+    .sidebar-header {
+        padding: 0 20px;
+    }
+
+    .nav-items {
+        list-style: none;
+        padding: 0;
+        margin: 20px 0;
+    }
+
+    .nav-item {
+        padding: 8px 20px;
+        transition: background-color 0.2s;
+    }
+
+    .nav-item:hover {
+        background-color: #e9ecef;
+    }
+
+    .nav-item.active {
+        background-color: #e9ecef;
+    }
+
+    .nav-item a {
+        color: #333;
+        text-decoration: none;
+        display: block;
+        font-size: 1.1rem;
+    }
+
+    .nav-item a:hover {
+        color: var(--furtherance-purple);
+    }
+
     .logout-container {
         padding: 20px;
         margin-top: auto;
         border-top: 1px solid #dee2e6;
     }
 
-    .logout-container .button {
-        width: 100%;
-        background-color: #dc3545;
+    .logout-link {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 1.1rem;
+        text-decoration: underline;
+        padding: 0;
+        transition: color 0.2s;
     }
 
-    .logout-container .button:hover {
-        background-color: #c82333;
+    .logout-link:hover {
+        color: #c82333;
     }
 </style>
