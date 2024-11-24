@@ -215,7 +215,6 @@ async fn handle_official_registration(state: AppState, form: RegisterForm) -> Re
 
     // Generate verification token
     let verification_token = Uuid::new_v4().to_string();
-    println!("{}", verification_token);
 
     if let Err(_) = database::store_temporary_registration(
         &state.db,

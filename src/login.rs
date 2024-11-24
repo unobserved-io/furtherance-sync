@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::collections::HashMap;
+
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
     Form, Json,
@@ -48,6 +50,7 @@ pub struct LoginForm {
 #[derive(Serialize)]
 struct LoginPageData {
     error_msg: Option<String>,
+    success_msg: Option<String>,
     #[cfg(feature = "official")]
     official: bool,
 }
@@ -110,14 +113,29 @@ pub async fn api_login(State(state): State<AppState>, Json(login): Json<LoginReq
     .into_response()
 }
 
-pub async fn show_login(State(state): State<AppState>, jar: CookieJar) -> impl IntoResponse {
+pub async fn show_login(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Query(params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
     // If already logged in, redirect to encryption page
     if jar.get("session").is_some() {
         return Redirect::to("/encryption").into_response();
     }
 
+    let success_msg = match params.get("message").map(|s| s.as_str()) {
+        Some("registration_success") => Some("Registration successful! Please log in.".to_string()),
+        Some("password_reset") => Some("Password reset. Please log in.".to_string()),
+        Some("logout_success") => Some("You have been logged out.".to_string()),
+        Some("session_expired") => {
+            Some("Your session has expired. Please log in again.".to_string())
+        }
+        _ => None,
+    };
+
     let data = LoginPageData {
         error_msg: None,
+        success_msg,
         #[cfg(feature = "official")]
         official: true,
     };
@@ -149,6 +167,7 @@ pub async fn handle_login(
         Ok(None) => {
             let data = LoginPageData {
                 error_msg: Some("Invalid email or password".to_string()),
+                success_msg: None,
                 #[cfg(feature = "official")]
                 official: true,
             };
@@ -165,6 +184,7 @@ pub async fn handle_login(
             error!("Login error: {}", err);
             let data = LoginPageData {
                 error_msg: Some("An error occurred. Please try again.".to_string()),
+                success_msg: None,
                 #[cfg(feature = "official")]
                 official: true,
             };

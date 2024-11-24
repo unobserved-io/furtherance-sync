@@ -63,7 +63,6 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             encryption_key_version INTEGER NOT NULL DEFAULT 0,
             stripe_customer_id VARCHAR(255),
             subscription_status VARCHAR(50),
-            subscription_end_date TIMESTAMP WITH TIME ZONE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );"#,
     )
@@ -841,24 +840,71 @@ pub async fn mark_temp_registration_used(
 }
 
 #[cfg(feature = "official")]
-pub async fn create_user_with_stripe(
+pub async fn create_user_with_subscription(
     pool: &PgPool,
     email: &str,
     password_hash: &str,
     stripe_customer_id: &str,
+    subscription_status: &str,
 ) -> Result<i32, sqlx::Error> {
     let result = sqlx::query!(
         r#"
-        INSERT INTO users (email, password_hash, stripe_customer_id)
-        VALUES ($1, $2, $3)
+        INSERT INTO users (
+            email,
+            password_hash,
+            stripe_customer_id,
+            subscription_status
+        )
+        VALUES ($1, $2, $3, $4)
         RETURNING id
         "#,
         email,
         password_hash,
         stripe_customer_id,
+        subscription_status
     )
     .fetch_one(pool)
     .await?;
 
     Ok(result.id)
+}
+
+#[cfg(feature = "official")]
+pub async fn get_stripe_customer_id(
+    pool: &PgPool,
+    user_id: i32,
+) -> Result<Option<String>, sqlx::Error> {
+    let record = sqlx::query!(
+        r#"
+        SELECT stripe_customer_id
+        FROM users
+        WHERE id = $1
+        "#,
+        user_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(record.and_then(|r| r.stripe_customer_id))
+}
+
+#[cfg(feature = "official")]
+pub async fn update_subscription_status(
+    pool: &PgPool,
+    stripe_customer_id: &str,
+    status: String,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE users
+        SET subscription_status = $1
+        WHERE stripe_customer_id = $2
+        "#,
+        status,
+        stripe_customer_id,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }

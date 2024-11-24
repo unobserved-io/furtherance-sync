@@ -58,6 +58,10 @@ pub fn configure_routes(state: AppState) -> Router {
             "/reset-password",
             get(password_reset::show_reset_password).post(password_reset::handle_reset_password),
         )
+        .route(
+            "/customer-portal",
+            get(billing::redirect_to_customer_portal),
+        )
         // Webhooks
         .route("/stripe-webhook", post(billing::handle_stripe_webhook));
 

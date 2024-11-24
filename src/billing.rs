@@ -14,13 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::str::FromStr;
+
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
-    response::{IntoResponse, Response},
+    response::{IntoResponse, Redirect, Response},
 };
-use stripe::Webhook;
-use tracing::error;
+use axum_extra::extract::CookieJar;
+use stripe::{CustomerId, Webhook};
+use tracing::{debug, error};
 
 use crate::{database, models::AppState};
 
@@ -51,7 +54,13 @@ pub async fn handle_stripe_webhook(
     let event = match Webhook::construct_event(&body, stripe_signature, &webhook_secret) {
         Ok(event) => event,
         Err(e) => {
-            error!("Failed to verify webhook signature: {}", e);
+            // More specific error logging
+            if body.is_empty() {
+                error!("Empty webhook body received");
+            } else {
+                error!("Failed to verify webhook signature: {}", e);
+                debug!("Webhook body preview: {:.100}...", body);
+            }
             return StatusCode::BAD_REQUEST.into_response();
         }
     };
@@ -75,6 +84,31 @@ pub async fn handle_stripe_webhook(
                 None => return StatusCode::BAD_REQUEST.into_response(),
             };
 
+            let subscription_id = match session.subscription {
+                Some(stripe::Expandable::Id(id)) => id,
+                Some(stripe::Expandable::Object(sub)) => sub.id,
+                None => return StatusCode::BAD_REQUEST.into_response(),
+            };
+
+            // Fetch the subscription to get its status and details
+            let stripe_key = match std::env::var("STRIPE_SECRET_KEY") {
+                Ok(key) => key,
+                Err(_) => {
+                    error!("STRIPE_SECRET_KEY not set");
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                }
+            };
+            let client = stripe::Client::new(stripe_key);
+
+            let subscription =
+                match stripe::Subscription::retrieve(&client, &subscription_id, &[]).await {
+                    Ok(sub) => sub,
+                    Err(e) => {
+                        error!("Failed to retrieve subscription: {}", e);
+                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                    }
+                };
+
             let temp_reg =
                 match database::get_temporary_registration(&state.db, &verification_token).await {
                     Ok(Some(reg)) => reg,
@@ -91,11 +125,13 @@ pub async fn handle_stripe_webhook(
                     }
                 };
 
-            if let Err(e) = database::create_user_with_stripe(
+            // Create user with subscription details
+            if let Err(e) = database::create_user_with_subscription(
                 &state.db,
                 &temp_reg.email,
                 &temp_reg.password_hash,
                 &customer_id,
+                &subscription.status.to_string(),
             )
             .await
             {
@@ -112,6 +148,93 @@ pub async fn handle_stripe_webhook(
 
             StatusCode::OK.into_response()
         }
+        stripe::EventType::CustomerSubscriptionDeleted
+        | stripe::EventType::CustomerSubscriptionUpdated => {
+            let subscription = match event.data.object {
+                stripe::EventObject::Subscription(subscription) => subscription,
+                _ => return StatusCode::BAD_REQUEST.into_response(),
+            };
+
+            // Get the customer ID from the subscription
+            let customer_id = match subscription.customer {
+                stripe::Expandable::Id(id) => id,
+                stripe::Expandable::Object(customer) => customer.id,
+            };
+
+            // Update subscription status in database
+            let status = subscription.status.to_string();
+
+            if let Err(e) =
+                database::update_subscription_status(&state.db, &customer_id, status).await
+            {
+                error!("Failed to update subscription status: {}", e);
+                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            }
+
+            StatusCode::OK.into_response()
+        }
         _ => StatusCode::OK.into_response(),
+    }
+}
+
+pub async fn redirect_to_customer_portal(
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> Response {
+    let user_id = match jar
+        .get("session")
+        .and_then(|c| c.value().parse::<i32>().ok())
+    {
+        Some(id) => id,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let customer_id = match database::get_stripe_customer_id(&state.db, user_id).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            error!("Failed to get customer_id: (Ok(None))");
+            return Redirect::to("/encryption").into_response();
+        }
+        Err(e) => {
+            error!("Failed to get customer_id: {}", e);
+            return Redirect::to("/encryption").into_response();
+        }
+    };
+
+    let stripe_secret_key = match std::env::var("STRIPE_SECRET_KEY") {
+        Ok(key) => key,
+        Err(_) => return Redirect::to("/encryption").into_response(),
+    };
+    let client = stripe::Client::new(stripe_secret_key);
+
+    // Create customer portal session
+    let return_url = "https://sync.furtherance.app/encryption";
+    let customer_id = match CustomerId::from_str(&customer_id) {
+        Ok(id) => id,
+        Err(e) => {
+            error!("Invalid Stripe customer ID format: {}", e);
+            return Redirect::to("/encryption").into_response();
+        }
+    };
+
+    match stripe::BillingPortalSession::create(
+        &client,
+        stripe::CreateBillingPortalSession {
+            customer: customer_id,
+            return_url: Some(return_url),
+            configuration: None,
+            expand: &[],
+            flow_data: None,
+            locale: None,
+            on_behalf_of: None,
+        },
+    )
+    .await
+    {
+        Ok(session) => Redirect::to(&session.url).into_response(),
+        Err(e) => {
+            error!("Failed to create Stripe portal session: {}", e);
+            Redirect::to("/encryption").into_response()
+        }
     }
 }

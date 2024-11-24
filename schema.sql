@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS users (
     encryption_key_version INTEGER NOT NULL DEFAULT 0,
     stripe_customer_id VARCHAR(255),
     subscription_status VARCHAR(50),
-    subscription_end_date TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
