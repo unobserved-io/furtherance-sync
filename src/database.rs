@@ -929,3 +929,19 @@ pub async fn is_subscription_active(pool: &PgPool, user_id: i32) -> Result<bool,
         None => false,
     })
 }
+
+#[cfg(feature = "official")]
+pub async fn cleanup_temporary_registrations(pool: &PgPool) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        DELETE FROM temporary_registrations
+        WHERE expires_at < CURRENT_TIMESTAMP
+        OR used = true
+        RETURNING id
+        "#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(result.len() as u64)
+}

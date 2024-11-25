@@ -41,6 +41,15 @@ pub async fn start_cleanup_task(pool: Arc<PgPool>) {
                     error!("Failed to cleanup reset tokens: {}", e);
                 }
             }
+
+            match database::cleanup_temporary_registrations(&pool).await {
+                Ok(count) => {
+                    info!("Cleaned up {} expired/used temporary registrations", count);
+                }
+                Err(e) => {
+                    error!("Failed to cleanup temporary registrations: {}", e);
+                }
+            }
         }
     });
 }
