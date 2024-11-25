@@ -14,11 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::collections::HashMap;
+
 use axum::{
     body::Body,
-    extract::State,
+    extract::{Query, State},
     http::{Request, StatusCode},
-    middleware::{from_fn_with_state, Next},
+    middleware::{from_fn, from_fn_with_state, Next},
     response::IntoResponse,
     routing::{get, post},
     Router,
@@ -26,7 +28,7 @@ use axum::{
 use axum_extra::extract::CookieJar;
 use tower_http::services::ServeDir;
 
-use crate::middleware::{api_auth_middleware, web_auth_middleware};
+use crate::middleware::{api_auth_middleware, sanitize_query_params, web_auth_middleware};
 use crate::{billing, database, encryption, login, logout, models::AppState, register, sync};
 
 #[cfg(feature = "official")]
@@ -106,7 +108,8 @@ pub fn configure_routes(state: AppState) -> Router {
         .merge(api_routes)
         .merge(official_routes)
         .merge(official_protected_routes)
-        .merge(webhook_routes);
+        .merge(webhook_routes)
+        .layer(from_fn_with_state(state.clone(), sanitize_query_params));
 
     #[cfg(not(feature = "official"))]
     let app = Router::new()

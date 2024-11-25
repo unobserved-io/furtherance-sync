@@ -1,13 +1,16 @@
+use std::collections::HashMap;
+
 use axum::{
     async_trait,
     body::Body,
-    extract::{FromRequestParts, State},
+    extract::{FromRequestParts, Query, State},
     http::{request::Parts, Request, StatusCode},
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::{IntoResponse, Redirect, Response},
     Json,
 };
 use axum_extra::extract::CookieJar;
+use tracing::error;
 
 use crate::{auth::verify_access_token, database, models::AppState};
 
@@ -121,4 +124,35 @@ impl FromRequestParts<AppState> for AuthUser {
 
         Err(StatusCode::UNAUTHORIZED.into_response())
     }
+}
+
+pub async fn sanitize_query_params(
+    State(_): State<AppState>,
+    query: Option<Query<HashMap<String, String>>>,
+    request: Request<Body>,
+    next: Next,
+) -> Response {
+    error!("Sanitize middleware called");
+
+    if let Some(Query(params)) = query {
+        if let Some(message) = params.get("message") {
+            error!("Found message: {}", message);
+            if message.len() > 1000 {
+                return Redirect::to("/login").into_response();
+            }
+
+            let allowed_messages = [
+                "session_expired",
+                "registration_success",
+                "password_reset",
+                "logout_success",
+            ];
+            if !allowed_messages.contains(&message.as_str()) {
+                error!("Invalid message: {}", message);
+                return Redirect::to("/login").into_response();
+            }
+        }
+    }
+
+    next.run(request).await
 }
