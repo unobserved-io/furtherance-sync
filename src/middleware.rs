@@ -132,8 +132,6 @@ pub async fn sanitize_query_params(
     request: Request<Body>,
     next: Next,
 ) -> Response {
-    error!("Sanitize middleware called");
-
     if let Some(Query(params)) = query {
         if let Some(message) = params.get("message") {
             error!("Found message: {}", message);
@@ -148,7 +146,6 @@ pub async fn sanitize_query_params(
                 "logout_success",
             ];
             if !allowed_messages.contains(&message.as_str()) {
-                error!("Invalid message: {}", message);
                 return Redirect::to("/login").into_response();
             }
         }
