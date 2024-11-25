@@ -12,7 +12,7 @@ use axum_extra::extract::CookieJar;
 use crate::{auth::verify_access_token, database, models::AppState};
 
 pub async fn web_auth_middleware(
-    State(state): State<AppState>,
+    State(_): State<AppState>,
     jar: CookieJar,
     request: Request<Body>,
     next: Next,
@@ -23,21 +23,13 @@ pub async fn web_auth_middleware(
         return next.run(request).await;
     }
 
-    // Check for valid session
     if let Some(session_cookie) = jar.get("session") {
-        if let Ok(user_id) = session_cookie.value().parse::<i32>() {
-            // For official version, check subscription status
-            #[cfg(feature = "official")]
-            if let Ok(is_active) = database::is_subscription_active(&state.db, user_id).await {
-                if !is_active {
-                    return axum::response::Redirect::to("/login").into_response();
-                }
-            }
+        if let Ok(_) = session_cookie.value().parse::<i32>() {
             return next.run(request).await;
         }
     }
 
-    axum::response::Redirect::to("/login").into_response()
+    axum::response::Redirect::to("/login?message=session_expired").into_response()
 }
 
 // In middleware.rs
