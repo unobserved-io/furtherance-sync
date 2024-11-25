@@ -48,6 +48,7 @@ pub fn configure_routes(state: AppState) -> Router {
     // Protected web routes - requires session cookie
     let web_routes = Router::new()
         .route("/encryption", get(encryption::show_encryption))
+        .route("/encryption/generate", post(encryption::generate_key))
         .route("/logout", post(logout::handle_logout))
         .layer(from_fn_with_state(
             state.clone(),
@@ -58,7 +59,6 @@ pub fn configure_routes(state: AppState) -> Router {
 
     // Protected API routes - requires Bearer token
     let api_routes = Router::new()
-        .route("/api/encryption/generate", post(encryption::generate_key))
         .route("/api/sync", post(sync::handle_sync))
         .route("/api/logout", post(logout::api_logout))
         .layer(from_fn_with_state(

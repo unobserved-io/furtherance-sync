@@ -155,7 +155,7 @@
 
             async function generateKey(confirmation = null) {
                 try {
-                    const response = await fetch('/api/encryption/generate', {
+                    const response = await fetch('/encryption/generate', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

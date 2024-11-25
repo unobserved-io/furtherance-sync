@@ -15,7 +15,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-    auth::verify_access_token,
     database::*,
     middleware::AuthUser,
     models::{AppState, EncryptedShortcut, EncryptedTask},
