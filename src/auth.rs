@@ -16,13 +16,13 @@
 
 use std::error::Error;
 
-use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use time::{Duration, OffsetDateTime};
 use tracing::error;
 use uuid::Uuid;
 
-const ACCESS_TOKEN_DURATION: i64 = 30 * 24 * 60 * 60; // 30 days
+const ACCESS_TOKEN_DURATION: Duration = Duration::days(30);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -33,7 +33,8 @@ pub struct Claims {
 pub fn generate_access_token(user_id: i32) -> Result<String, Box<dyn Error>> {
     let secret_key = get_fur_secret_key()?;
 
-    let expiration = (Utc::now() + Duration::seconds(ACCESS_TOKEN_DURATION)).timestamp() as usize;
+    let expiration = (OffsetDateTime::now_utc() + ACCESS_TOKEN_DURATION).unix_timestamp() as usize;
+
     let claims = Claims {
         sub: user_id,
         exp: expiration,

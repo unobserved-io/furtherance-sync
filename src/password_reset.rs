@@ -21,8 +21,8 @@ use axum::{
     response::{Html, IntoResponse, Response},
     Form,
 };
-use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
+use time::{Duration, OffsetDateTime};
 use tracing::error;
 use uuid::Uuid;
 
@@ -87,7 +87,7 @@ pub async fn handle_forgot_password(
 
     // Generate reset token
     let token = Uuid::new_v4().to_string();
-    let expires_at = Utc::now() + Duration::hours(1);
+    let expires_at = OffsetDateTime::now_utc() + Duration::hours(1);
     if let Err(e) = database::store_reset_token(&state.db, user_id, &token, expires_at).await {
         error!("Failed to store reset token: {}", e);
         return render_error_page(&state, "An error occurred. Please try again.");

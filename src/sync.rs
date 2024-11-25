@@ -115,7 +115,7 @@ pub async fn handle_sync(
         }
     };
 
-    let server_timestamp = chrono::Utc::now().timestamp();
+    let server_timestamp = time::OffsetDateTime::now_utc().unix_timestamp();
 
     // TODO: Check later if these actually make a difference
     let mut task_ids_updated: Vec<&str> = Vec::new();

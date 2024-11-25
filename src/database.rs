@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
 use std::error::Error;
 use tracing::error;
@@ -683,7 +682,7 @@ pub async fn store_reset_token(
     pool: &PgPool,
     user_id: i32,
     token: &str,
-    expires_at: DateTime<Utc>,
+    expires_at: time::OffsetDateTime,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
