@@ -24,7 +24,7 @@ use axum_extra::extract::cookie::{Cookie, CookieJar};
 use serde::Deserialize;
 use tracing::error;
 
-use crate::{database, login, AppState};
+use crate::{database, login, middleware::AuthUser, AppState};
 
 #[derive(Deserialize)]
 pub struct LogoutRequest {
@@ -32,41 +32,22 @@ pub struct LogoutRequest {
 }
 
 // Web interface logout
-pub async fn handle_logout(State(_): State<AppState>, jar: CookieJar) -> Response {
-    if let Some(session_cookie) = jar.get("session") {
-        if let Ok(_) = session_cookie.value().parse::<i32>() {
-            // Remove the session cookie
-            let mut removal_cookie = Cookie::new("session", "");
-            removal_cookie.set_path("/");
-            let jar = jar.remove(removal_cookie);
+pub async fn handle_logout(AuthUser(_): AuthUser, jar: CookieJar) -> Response {
+    // Remove the session cookie
+    let mut removal_cookie = Cookie::new("session", "");
+    removal_cookie.set_path("/");
+    let jar = jar.remove(removal_cookie);
 
-            // TODO: invalidate the session in the database???
-            return (jar, Redirect::to("/login?message=logout_success")).into_response();
-        }
-    }
-
-    Redirect::to("/login").into_response()
+    // TODO: invalidate the session in the database???
+    (jar, Redirect::to("/login?message=logout_success")).into_response()
 }
 
 // API logout
 pub async fn api_logout(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
+    AuthUser(user_id): AuthUser,
     Json(logout_data): Json<LogoutRequest>,
 ) -> Response {
-    let auth_header = match headers.get("Authorization") {
-        Some(header) => match header.to_str() {
-            Ok(auth_str) => auth_str.replace("Bearer ", ""),
-            Err(_) => return StatusCode::UNAUTHORIZED.into_response(),
-        },
-        None => return StatusCode::UNAUTHORIZED.into_response(),
-    };
-
-    let user_id = match crate::auth::verify_access_token(&auth_header) {
-        Ok(id) => id,
-        Err(_) => return StatusCode::UNAUTHORIZED.into_response(),
-    };
-
     let device_id_hash = login::hash_device_id(&logout_data.device_id);
 
     let refresh_token =

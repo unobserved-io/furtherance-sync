@@ -20,6 +20,7 @@ mod email;
 mod encryption;
 mod login;
 mod logout;
+mod middleware;
 mod models;
 mod password_reset;
 mod register;

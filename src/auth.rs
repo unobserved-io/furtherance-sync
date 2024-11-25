@@ -30,7 +30,7 @@ pub struct Claims {
     pub exp: usize,
 }
 
-pub fn generate_access_token(user_id: i32) -> Result<String, Box<dyn Error>> {
+pub fn generate_access_token(user_id: i32) -> Result<String, Box<dyn Error + Send + Sync>> {
     let secret_key = get_fur_secret_key()?;
 
     let expiration = (OffsetDateTime::now_utc() + ACCESS_TOKEN_DURATION).unix_timestamp() as usize;
@@ -51,7 +51,7 @@ pub fn generate_refresh_token() -> String {
     Uuid::new_v4().to_string()
 }
 
-pub fn verify_access_token(token: &str) -> Result<i32, Box<dyn Error>> {
+pub fn verify_access_token(token: &str) -> Result<i32, Box<dyn Error + Send + Sync>> {
     let secret_key = get_fur_secret_key()?;
 
     let token_data = decode::<Claims>(
@@ -63,7 +63,7 @@ pub fn verify_access_token(token: &str) -> Result<i32, Box<dyn Error>> {
     Ok(token_data.claims.sub)
 }
 
-pub fn get_fur_secret_key() -> Result<Vec<u8>, Box<dyn Error>> {
+pub fn get_fur_secret_key() -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
     match std::env::var("FUR_SECRET_KEY") {
         Ok(key) => Ok(key.into_bytes()),
         Err(e) => {

@@ -21,11 +21,10 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Redirect, Response},
 };
-use axum_extra::extract::CookieJar;
 use stripe::{CustomerId, Webhook};
 use tracing::{debug, error};
 
-use crate::{database, models::AppState};
+use crate::{database, middleware::AuthUser, models::AppState};
 
 pub async fn handle_stripe_webhook(
     State(state): State<AppState>,
@@ -179,16 +178,8 @@ pub async fn handle_stripe_webhook(
 
 pub async fn redirect_to_customer_portal(
     State(state): State<AppState>,
-    jar: CookieJar,
+    AuthUser(user_id): AuthUser,
 ) -> Response {
-    let user_id = match jar
-        .get("session")
-        .and_then(|c| c.value().parse::<i32>().ok())
-    {
-        Some(id) => id,
-        None => return Redirect::to("/login").into_response(),
-    };
-
     let customer_id = match database::get_stripe_customer_id(&state.db, user_id).await {
         Ok(Some(id)) => id,
         Ok(None) => {

@@ -17,6 +17,7 @@
 use crate::{
     auth::verify_access_token,
     database::*,
+    middleware::AuthUser,
     models::{AppState, EncryptedShortcut, EncryptedTask},
 };
 
@@ -70,41 +71,9 @@ pub async fn get_orphaned_items(pool: &PgPool, user_id: i32) -> (Vec<String>, Ve
 
 pub async fn handle_sync(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
+    AuthUser(user_id): AuthUser,
     Json(sync_data): Json<SyncRequest>,
 ) -> Response {
-    // Extract token from Authorization header
-    let auth_header = match headers.get("Authorization") {
-        Some(header) => match header.to_str() {
-            Ok(auth_str) => auth_str.replace("Bearer ", ""),
-            Err(_) => return StatusCode::UNAUTHORIZED.into_response(),
-        },
-        None => return StatusCode::UNAUTHORIZED.into_response(),
-    };
-
-    // Verify token and get user_id
-    let user_id = match verify_access_token(&auth_header) {
-        Ok(id) => id,
-        Err(_) => return StatusCode::UNAUTHORIZED.into_response(),
-    };
-
-    // If on the official server, make sure the user's subscription is active
-    #[cfg(feature = "official")]
-    match is_subscription_active(&state.db, user_id).await {
-        Ok(true) => (),
-        Ok(false) => {
-            return Json(serde_json::json!({
-                "error": "inactive_subscription",
-                "message": "Your subscription is not active"
-            }))
-            .into_response();
-        }
-        Err(e) => {
-            error!("Error checking subscription status: {}", e);
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
-    }
-
     // Get refresh token for this device
     let refresh_token = match fetch_refresh_token(&state.db, user_id, &sync_data.device_id).await {
         Ok(Some(token)) => token,

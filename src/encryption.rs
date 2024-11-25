@@ -16,15 +16,14 @@
 
 use axum::{
     extract::{Json, State},
-    response::{Html, IntoResponse, Redirect},
+    response::{Html, IntoResponse},
 };
-use axum_extra::extract::CookieJar;
 use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use crate::{database, AppState};
+use crate::{database, middleware::AuthUser, AppState};
 
 #[derive(Serialize)]
 struct EncryptionPageData {
@@ -47,15 +46,10 @@ pub struct GenerateKeyResponse {
     key: String,
 }
 
-pub async fn show_encryption(State(state): State<AppState>, jar: CookieJar) -> impl IntoResponse {
-    let user_id = match jar
-        .get("session")
-        .and_then(|c| c.value().parse::<i32>().ok())
-    {
-        Some(id) => id,
-        None => return Redirect::to("/login?message=session_expired").into_response(),
-    };
-
+pub async fn show_encryption(
+    State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
+) -> impl IntoResponse {
     let has_key = database::fetch_encryption_key(&state.db, user_id)
         .await
         .map(|key| key.is_some())
@@ -82,22 +76,9 @@ pub async fn show_encryption(State(state): State<AppState>, jar: CookieJar) -> i
 
 pub async fn generate_key(
     State(state): State<AppState>,
-    jar: CookieJar,
+    AuthUser(user_id): AuthUser,
     confirmation: Option<Json<GenerateConfirmation>>,
 ) -> Json<serde_json::Value> {
-    let user_id = match jar
-        .get("session")
-        .and_then(|c| c.value().parse::<i32>().ok())
-    {
-        Some(id) => id,
-        None => {
-            return Json(serde_json::json!({
-                "error": "unauthorized",
-                "message": "Not authenticated"
-            }))
-        }
-    };
-
     let has_key = database::fetch_encryption_key(&state.db, user_id)
         .await
         .map(|key| key.is_some())

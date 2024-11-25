@@ -15,41 +15,62 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use axum::{
-    http::StatusCode,
+    body::Body,
+    extract::State,
+    http::{Request, StatusCode},
+    middleware::{from_fn_with_state, Next},
     response::IntoResponse,
     routing::{get, post},
     Router,
 };
-use tower_http::{services::ServeDir, trace::TraceLayer};
+use axum_extra::extract::CookieJar;
+use tower_http::services::ServeDir;
+
+use crate::middleware::{api_auth_middleware, web_auth_middleware};
+use crate::{billing, database, encryption, login, logout, models::AppState, register, sync};
 
 #[cfg(feature = "official")]
 use crate::password_reset;
-use crate::{billing, database, encryption, login, logout, models::AppState, register, sync};
 
 pub fn configure_routes(state: AppState) -> Router {
-    let app = Router::new()
+    // Public routes (no auth required)
+    let public_routes = Router::new()
         .route("/", get(determine_root))
-        // Web interface routes
         .route(
             "/register",
             get(register::show_register).post(register::handle_register),
         )
         .route("/login", get(login::show_login).post(login::handle_login))
-        .route("/logout", post(logout::handle_logout))
-        .route("/encryption", get(encryption::show_encryption))
-        // API routes
         .route("/api/register", post(register::api_register))
         .route("/api/login", post(login::api_login))
+        .nest_service("/static", ServeDir::new("static"));
+
+    // Protected web routes - requires session cookie
+    let web_routes = Router::new()
+        .route("/encryption", get(encryption::show_encryption))
+        .route("/logout", post(logout::handle_logout))
+        .layer(from_fn_with_state(
+            state.clone(),
+            |state: State<AppState>, jar: CookieJar, req: Request<Body>, next: Next| async move {
+                web_auth_middleware(state, jar, req, next).await
+            },
+        ));
+
+    // Protected API routes - requires Bearer token
+    let api_routes = Router::new()
         .route("/api/encryption/generate", post(encryption::generate_key))
         .route("/api/sync", post(sync::handle_sync))
         .route("/api/logout", post(logout::api_logout))
-        // Serve static files
-        .nest_service("/static", ServeDir::new("static"))
-        .layer(TraceLayer::new_for_http());
+        .layer(from_fn_with_state(
+            state.clone(),
+            |state: State<AppState>, req: Request<Body>, next: Next| async move {
+                api_auth_middleware(state, req, next).await
+            },
+        ));
 
-    // Add billing routes for official server
+    // Additional routes for official server
     #[cfg(feature = "official")]
-    let app = app
+    let official_routes = Router::new()
         .route(
             "/forgot-password",
             get(password_reset::show_forgot_password).post(password_reset::handle_forgot_password),
@@ -57,13 +78,41 @@ pub fn configure_routes(state: AppState) -> Router {
         .route(
             "/reset-password",
             get(password_reset::show_reset_password).post(password_reset::handle_reset_password),
-        )
+        );
+
+    #[cfg(feature = "official")]
+    let official_protected_routes = Router::new()
         .route(
             "/customer-portal",
             get(billing::redirect_to_customer_portal),
         )
-        // Webhooks
-        .route("/stripe-webhook", post(billing::handle_stripe_webhook));
+        .layer(from_fn_with_state(
+            state.clone(),
+            |state: State<AppState>, jar: CookieJar, req: Request<Body>, next: Next| async move {
+                web_auth_middleware(state, jar, req, next).await
+            },
+        ));
+
+    // Special routes (like webhooks) that need different handling
+    #[cfg(feature = "official")]
+    let webhook_routes =
+        Router::new().route("/stripe-webhook", post(billing::handle_stripe_webhook));
+
+    // Combine all routes
+    #[cfg(feature = "official")]
+    let app = Router::new()
+        .merge(public_routes)
+        .merge(web_routes)
+        .merge(api_routes)
+        .merge(official_routes)
+        .merge(official_protected_routes)
+        .merge(webhook_routes);
+
+    #[cfg(not(feature = "official"))]
+    let app = Router::new()
+        .merge(public_routes)
+        .merge(web_routes)
+        .merge(api_routes);
 
     app.with_state(state)
 }
