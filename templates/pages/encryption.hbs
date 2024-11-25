@@ -13,21 +13,26 @@
         <div class="warning">
             <strong>Important:</strong>
             <ul>
-                <li>Your encryption key is used to protect your data.</li>
-                <li>Once generated, the key will only be shown once - you must save it
-                    immediately.</li>
-                <li>Store it somewhere safe - if you lose it, you won't be able to
+                <li>Once generated, the key will only be shown once - <strong>you must save it
+                    immediately</strong>.</li>
+                <li><strong>Store it somewhere safe</strong> - if you lose it, you won't be able to
                     access your encrypted data.</li>
-                <li>This key is different from your password and cannot be reset.</li>
+                <li>Your encryption key is used to protect your data.</li>
+                <li>This key is different from your password and is used to log into the Furtherance client.</li>
             </ul>
         </div>
 
         {{#if has_key}}
-            <p>An encryption key is currently set up.</p>
+            <div class="key-status">
+                <p>An encryption key is currently set up</p>
+                <p class="key-details">This key cannot be viewed after initial generation.
+                If you need to set up another device, you'll need to use the key you saved.
+                If you've lost your key, you'll need to generate a new one.</p>
+            </div>
         {{/if}}
 
         <div class="button-group">
-            <button type="button" class="button" onclick="handleGenerateClick()">
+            <button type="button" class="button {{#if has_key}}button-warning{{/if}}" onclick="handleGenerateClick()">
                 Generate
                 {{#if has_key}}New{{/if}}
                 Key
@@ -45,7 +50,7 @@
                     id="confirmationInput"
                     placeholder="Type 'generate' to confirm"
                 />
-                <button onclick="confirmGenerate()" class="button">Confirm</button>
+                <button onclick="confirmGenerate()" class="button button-warning">Confirm</button>
                 <button
                     onclick="cancelGenerate()"
                     class="button"
@@ -99,6 +104,29 @@
                 margin-top: 20px;
             }
 
+            #confirmationInput {
+                width: 100%;
+                padding: 0.75rem;
+                font-size: 1rem;
+                border: 1px solid #dee2e6;
+                border-radius: 5px;
+                margin: 10px 0;
+            }
+
+            #confirmationInput:focus {
+                outline: none;
+                border-color: #B179F1;
+                box-shadow: 0 0 0 2px rgba(177, 121, 241, 0.1);
+            }
+
+            .confirmation-dialog .button {
+                margin-right: 10px;
+            }
+
+            .confirmation-dialog .warning button {
+                margin-top: 10px;
+            }
+
             .key-display {
                 background: #f8f9fa;
                 padding: 15px;
@@ -106,6 +134,25 @@
                 font-family: monospace;
                 margin: 15px 0;
                 word-break: break-all;
+                font-weight: bold;
+            }
+
+            .key-status {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 20px 0;
+            }
+
+            .key-status p {
+                margin: 0;
+            }
+
+            .key-details {
+                font-size: 0.9rem;
+                margin-top: 8px !important;
+                color: #6c757d;
             }
 
             .close {
@@ -116,12 +163,21 @@
                 cursor: pointer;
             }
 
+            .button-warning {
+                background-color: #dc3545;
+            }
+
+            .button-warning:hover {
+                background-color: #c82333;
+            }
+
             .warning {
                 background-color: #fff3cd;
                 border: 1px solid #ffeeba;
                 padding: 15px;
                 border-radius: 5px;
                 margin: 20px 0;
+                list-style-position: inside;
             }
 
             .error {
