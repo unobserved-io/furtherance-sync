@@ -188,7 +188,7 @@ async fn test_successful_registration() {
         );
     }
 
-    #[cfg(not(feature = "official"))]
+    #[cfg(feature = "self-hosted")]
     {
         assert_eq!(
             status,

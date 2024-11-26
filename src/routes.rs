@@ -109,7 +109,7 @@ pub fn configure_routes(state: AppState) -> Router {
         .merge(webhook_routes)
         .layer(from_fn_with_state(state.clone(), sanitize_query_params));
 
-    #[cfg(not(feature = "official"))]
+    #[cfg(feature = "self-hosted")]
     let app = Router::new()
         .merge(public_routes)
         .merge(web_routes)

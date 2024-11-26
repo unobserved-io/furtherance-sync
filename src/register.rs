@@ -117,7 +117,7 @@ pub async fn handle_register(
         handle_official_registration(state, form).await
     }
 
-    #[cfg(not(feature = "official"))]
+    #[cfg(feature = "self-hosted")]
     {
         // Self-hosted version - direct registration
         match database::create_user(&state.db, &form.email, &form.password).await {
