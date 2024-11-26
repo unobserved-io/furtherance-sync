@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::sync::Arc;
+
 use axum::{
     body::Body,
     extract::State,
@@ -24,6 +26,7 @@ use axum::{
     Router,
 };
 use axum_extra::extract::CookieJar;
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::services::ServeDir;
 
 use crate::{
@@ -37,6 +40,14 @@ use crate::{
 use crate::official::{billing, password_reset};
 
 pub fn configure_routes(state: AppState) -> Router {
+    let governor_conf = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(2)
+            .burst_size(5)
+            .finish()
+            .unwrap(),
+    );
+
     // Public routes (no auth required)
     let public_routes = Router::new()
         .route("/", get(determine_root))
@@ -47,7 +58,10 @@ pub fn configure_routes(state: AppState) -> Router {
         .route("/login", get(login::show_login).post(login::handle_login))
         // .route("/api/register", post(register::api_register))
         .route("/api/login", post(login::api_login))
-        .nest_service("/static", ServeDir::new("static"));
+        .nest_service("/static", ServeDir::new("static"))
+        .layer(GovernorLayer {
+            config: governor_conf,
+        });
 
     // Protected web routes - requires session cookie
     let web_routes = Router::new()
