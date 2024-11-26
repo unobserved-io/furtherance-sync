@@ -285,6 +285,7 @@ pub async fn fetch_orphaned_shortcut_uids(
     Ok(records.into_iter().map(|r| r.uid).collect())
 }
 
+#[allow(dead_code)]
 pub async fn create_user(
     pool: &PgPool,
     email: &str,

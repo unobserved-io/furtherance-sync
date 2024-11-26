@@ -17,26 +17,13 @@
 use axum::{
     extract::State,
     response::{Html, IntoResponse, Redirect, Response},
-    Form, Json,
+    Form,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::{database, AppState};
-
-// API registration structures
-#[derive(Deserialize)]
-pub struct RegisterRequest {
-    email: String,
-    password: String,
-}
-
-#[derive(Serialize)]
-pub struct RegisterResponse {
-    user_id: i32,
-    message: String,
-}
 
 // Web interface registration structures
 #[derive(Deserialize)]
@@ -150,47 +137,6 @@ pub async fn handle_register(
                     },
                 )
             }
-        }
-    }
-}
-
-// TODO: DELETE? May be unused
-// API registration handler
-pub async fn api_register(
-    State(state): State<AppState>,
-    Json(register): Json<RegisterRequest>,
-) -> Response {
-    // Basic validation
-    if !is_valid_email(&register.email) {
-        return Json(serde_json::json!({
-            "error": "Please enter a valid email address"
-        }))
-        .into_response();
-    }
-
-    if register.password.len() < 8 {
-        return Json(serde_json::json!({
-            "error": "Password must be at least 8 characters long"
-        }))
-        .into_response();
-    }
-
-    match database::create_user(&state.db, &register.email, &register.password).await {
-        Ok(user_id) => Json(RegisterResponse {
-            user_id,
-            message: "Registration successful".to_string(),
-        })
-        .into_response(),
-        Err(err) => {
-            let error_msg = if err.to_string().contains("unique constraint") {
-                "Email already registered"
-            } else {
-                "Registration failed"
-            };
-            Json(serde_json::json!({
-                "error": error_msg
-            }))
-            .into_response()
         }
     }
 }

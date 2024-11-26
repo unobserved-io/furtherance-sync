@@ -18,11 +18,11 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
-use crate::tests::common::test_app;
+use crate::tests::common::setup_test_router;
 
 #[tokio::test]
 async fn test_login_message_sanitization() {
-    let app = test_app().await;
+    let app = setup_test_router().await;
 
     // Test invalid message
     let response = app
@@ -51,5 +51,37 @@ async fn test_login_message_sanitization() {
         .unwrap();
 
     // Should be successful (200)
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_auth_middleware() {
+    let app = setup_test_router().await;
+
+    // Test protected route without auth
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/sync")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+    // Test public route without auth
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/login")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
     assert_eq!(response.status(), StatusCode::OK);
 }

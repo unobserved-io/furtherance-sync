@@ -41,7 +41,7 @@ pub fn configure_routes(state: AppState) -> Router {
             get(register::show_register).post(register::handle_register),
         )
         .route("/login", get(login::show_login).post(login::handle_login))
-        .route("/api/register", post(register::api_register))
+        // .route("/api/register", post(register::api_register))
         .route("/api/login", post(login::api_login))
         .nest_service("/static", ServeDir::new("static"));
 

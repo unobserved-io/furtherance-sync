@@ -31,9 +31,21 @@ mod tasks;
 #[cfg(test)]
 mod tests {
     #[cfg(test)]
+    mod auth_tests;
+    #[cfg(test)]
+    mod billing_tests;
+    #[cfg(test)]
     mod common;
     #[cfg(test)]
-    mod security;
+    mod email_tests;
+    #[cfg(test)]
+    mod encryption_tests;
+    #[cfg(test)]
+    mod middleware_tests;
+    #[cfg(test)]
+    mod registration_tests;
+    #[cfg(test)]
+    mod sync_tests;
 }
 
 #[cfg(feature = "official")]
