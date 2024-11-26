@@ -208,3 +208,52 @@ async fn test_successful_registration() {
         );
     }
 }
+
+#[tokio::test]
+async fn test_password_requirements() {
+    let app = common::setup_test_router().await;
+
+    let test_cases = vec![
+        ("short", "Too short"),
+        ("nouppercase123!", "No uppercase letter"),
+        ("NOLOWERCASE123!", "No lowercase letter"),
+        ("NoSpecialChars123", "No special character"),
+        ("NoNumbers@Abcdefg", "No number"),
+        ("Valid@Password123", "Valid password"),
+    ];
+
+    for (password, description) in test_cases {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/register")
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .body(Body::from(format!(
+                        "email=test@example.com&password={}",
+                        password
+                    )))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let (_, html) = get_html_response(response).await;
+
+        if password == "Valid@Password123" {
+            assert!(
+                !html.contains("Password must be at least 8 characters"),
+                "Valid password '{}' was rejected",
+                description
+            );
+        } else {
+            assert!(
+                html.contains("Password must be at least 8 characters"),
+                "Invalid password '{}' ({}) was not properly validated",
+                password,
+                description
+            );
+        }
+    }
+}
