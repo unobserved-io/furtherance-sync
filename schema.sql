@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     encryption_key_hash VARCHAR(255),
     encryption_key_version INTEGER NOT NULL DEFAULT 0,
+    organization_id INTEGER REFERENCES organizations(id),
     stripe_customer_id VARCHAR(255),
     subscription_status VARCHAR(50),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -34,6 +35,41 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     used BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS organizations (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    stripe_customer_id VARCHAR(255),
+    subscription_status VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS organization_roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    description TEXT,
+    UNIQUE(name)
+);
+
+CREATE TABLE IF NOT EXISTS organization_invites (
+    id SERIAL PRIMARY KEY,
+    organization_id INTEGER REFERENCES organizations(id),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    role_id INTEGER REFERENCES organization_roles(id),
+    invited_by INTEGER REFERENCES users(id),
+    invite_token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS organization_members (
+    organization_id INTEGER REFERENCES organizations(id),
+    user_id INTEGER REFERENCES users(id),
+    role_id INTEGER REFERENCES organization_roles(id),
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (organization_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS temporary_registrations (
@@ -64,8 +100,8 @@ CREATE TABLE IF NOT EXISTS shortcuts (
     uid TEXT NOT NULL,
     last_updated BIGINT NOT NULL DEFAULT 0,
     is_orphaned BOOL NOT NULL DEFAULT FALSE,
-    known_by_devices TEXT[] DEFAULT '{}',
     user_id INTEGER REFERENCES users(id),
+    known_by_devices TEXT[] DEFAULT '{}',
     UNIQUE(user_id, uid),
     PRIMARY KEY (user_id, uid)
 );
