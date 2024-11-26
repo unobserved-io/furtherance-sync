@@ -27,8 +27,12 @@ mod register;
 mod routes;
 mod sync;
 mod tasks;
+
+#[cfg(test)]
 mod tests {
+    #[cfg(test)]
     mod common;
+    #[cfg(test)]
     mod security;
 }
 

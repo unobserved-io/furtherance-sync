@@ -14,17 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use handlebars::Handlebars;
-use sqlx::PgPool;
 use tower::ServiceExt;
 
-use crate::email::EmailConfig;
-use crate::models::AppState;
-use crate::routes::configure_routes;
 use crate::tests::common::test_app;
 
 #[tokio::test]
