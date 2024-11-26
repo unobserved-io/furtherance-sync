@@ -16,10 +16,13 @@
 
 use std::sync::Arc;
 
-use crate::{email::EmailConfig, models::AppState, routes::configure_routes};
+use crate::{models::AppState, routes::configure_routes};
 use axum::Router;
 use handlebars::Handlebars;
 use sqlx::PgPool;
+
+#[cfg(feature = "official")]
+use crate::official::email::EmailConfig;
 
 // Helper function to create test database connection
 async fn setup_test_db() -> PgPool {

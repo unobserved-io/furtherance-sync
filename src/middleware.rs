@@ -23,12 +23,14 @@ use axum::{
     http::{request::Parts, Request, StatusCode},
     middleware::Next,
     response::{IntoResponse, Redirect, Response},
-    Json,
 };
 use axum_extra::extract::CookieJar;
 use tracing::error;
 
-use crate::{auth::verify_access_token, database, models::AppState};
+use crate::{auth::verify_access_token, models::AppState};
+
+#[cfg(feature = "official")]
+use {crate::database, axum::Json};
 
 pub async fn web_auth_middleware(
     State(_): State<AppState>,
@@ -52,6 +54,7 @@ pub async fn web_auth_middleware(
 }
 
 // In middleware.rs
+#[allow(unused_variables)]
 pub async fn api_auth_middleware(
     State(state): State<AppState>,
     request: Request<Body>,

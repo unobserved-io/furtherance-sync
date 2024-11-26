@@ -46,7 +46,7 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
                 password_hash VARCHAR(255) NOT NULL,
                 encryption_key_hash VARCHAR(255),
                 encryption_key_version INTEGER NOT NULL DEFAULT 0,
-                organization_id INTEGER REFERENCES organizations(id);
+                organization_id INTEGER REFERENCES organizations(id),
                 stripe_customer_id VARCHAR(255),
                 subscription_status VARCHAR(50),
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -719,7 +719,6 @@ pub async fn fetch_refresh_token(
     Ok(result.map(|r| r.refresh_token))
 }
 
-#[cfg(feature = "official")]
 pub async fn get_user_id_by_email(pool: &PgPool, email: &str) -> Result<Option<i32>, sqlx::Error> {
     let record = sqlx::query!(
         r#"

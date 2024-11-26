@@ -16,26 +16,33 @@
 
 mod auth;
 mod database;
-mod email;
 mod encryption;
 mod login;
 mod logout;
 mod middleware;
 mod models;
-mod password_reset;
 mod register;
 mod routes;
 mod sync;
-mod tasks;
+
+#[cfg(feature = "official")]
+mod official {
+    pub mod billing;
+    pub mod email;
+    pub mod password_reset;
+    pub mod tasks;
+}
 
 #[cfg(test)]
 mod tests {
     #[cfg(test)]
     mod auth_tests;
+    #[cfg(feature = "official")]
     #[cfg(test)]
     mod billing_tests;
     #[cfg(test)]
     mod common;
+    #[cfg(feature = "official")]
     #[cfg(test)]
     mod email_tests;
     #[cfg(test)]
@@ -48,16 +55,15 @@ mod tests {
     mod sync_tests;
 }
 
-#[cfg(feature = "official")]
-mod billing;
-
-use email::EmailConfig;
 use handlebars::Handlebars;
 use models::AppState;
 use routes::configure_routes;
 use std::sync::Arc;
 use tracing::{error, info};
 use tracing_subscriber::{self, EnvFilter};
+
+#[cfg(feature = "official")]
+use official::email::EmailConfig;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -75,7 +81,7 @@ async fn main() -> std::io::Result<()> {
 
     // Start background tasks
     #[cfg(feature = "official")]
-    let _ = tasks::start_cleanup_task(pool.clone());
+    let _ = official::tasks::start_cleanup_task(pool.clone());
 
     // Initialize Handlebars
     let mut hb = Handlebars::new();

@@ -19,14 +19,19 @@ use std::collections::HashMap;
 use axum::{
     extract::{Query, State},
     response::{Html, IntoResponse, Response},
-    Form,
 };
 use serde::{Deserialize, Serialize};
-use time::{Duration, OffsetDateTime};
 use tracing::error;
-use uuid::Uuid;
 
-use crate::{database, email, AppState};
+use crate::AppState;
+
+#[cfg(feature = "official")]
+use {
+    crate::{database, official::email},
+    axum::Form,
+    time::{Duration, OffsetDateTime},
+    uuid::Uuid,
+};
 
 #[derive(Serialize)]
 struct ForgotPasswordPageData {
@@ -69,6 +74,7 @@ pub async fn show_forgot_password(State(state): State<AppState>) -> impl IntoRes
     }
 }
 
+#[cfg(feature = "official")]
 pub async fn handle_forgot_password(
     State(state): State<AppState>,
     Form(form): Form<ForgotPasswordForm>,
@@ -158,6 +164,7 @@ pub async fn show_reset_password(
     }
 }
 
+#[cfg(feature = "official")]
 pub async fn handle_reset_password(
     State(state): State<AppState>,
     Form(form): Form<ResetPasswordForm>,

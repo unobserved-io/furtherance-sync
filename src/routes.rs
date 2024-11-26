@@ -26,11 +26,15 @@ use axum::{
 use axum_extra::extract::CookieJar;
 use tower_http::services::ServeDir;
 
-use crate::middleware::{api_auth_middleware, sanitize_query_params, web_auth_middleware};
-use crate::{billing, database, encryption, login, logout, models::AppState, register, sync};
+use crate::{
+    database, encryption, login, logout,
+    middleware::{api_auth_middleware, sanitize_query_params, web_auth_middleware},
+    models::AppState,
+    register, sync,
+};
 
 #[cfg(feature = "official")]
-use crate::password_reset;
+use crate::official::{billing, password_reset};
 
 pub fn configure_routes(state: AppState) -> Router {
     // Public routes (no auth required)
@@ -113,7 +117,8 @@ pub fn configure_routes(state: AppState) -> Router {
     let app = Router::new()
         .merge(public_routes)
         .merge(web_routes)
-        .merge(api_routes);
+        .merge(api_routes)
+        .layer(from_fn_with_state(state.clone(), sanitize_query_params));
 
     app.with_state(state)
 }

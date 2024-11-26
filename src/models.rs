@@ -20,7 +20,8 @@ use handlebars::Handlebars;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-use crate::email::EmailConfig;
+#[cfg(feature = "official")]
+use crate::official::email::EmailConfig;
 
 #[derive(Serialize, Deserialize)]
 pub struct EncryptedTask {
