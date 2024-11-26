@@ -54,6 +54,16 @@ fn is_valid_email(email: &str) -> bool {
     !email.is_empty() && email_regex.is_match(email) && email.contains('.')
 }
 
+#[cfg(feature = "official")]
+fn is_password_valid(password: &str) -> bool {
+    let has_number = password.chars().any(|c| c.is_numeric());
+    let has_special = password.chars().any(|c| "!@#$%^&*(),.?\"{}|<>".contains(c));
+    let has_uppercase = password.chars().any(|c| c.is_uppercase());
+    let has_lowercase = password.chars().any(|c| c.is_lowercase());
+
+    password.len() >= 8 && has_number && has_special && has_uppercase && has_lowercase
+}
+
 // Web interface handlers
 pub async fn show_register(State(state): State<AppState>) -> impl IntoResponse {
     let data = RegisterPageData {
@@ -113,7 +123,17 @@ pub async fn handle_register(
 
     #[cfg(feature = "official")]
     {
-        // Official version - handle Stripe registration flow
+        // Check if password meets requirements
+        if !is_password_valid(&form.password) {
+            let data = RegisterPageData {
+                    error_msg: Some("Password must be at least 8 characters long and contain uppercase, lowercase, number, and special characters".to_string()),
+                    success_msg: None,
+                    official: true,
+                };
+            return render_register_page(&state, data);
+        }
+
+        // Handle Stripe registration flow
         handle_official_registration(state, form).await
     }
 
