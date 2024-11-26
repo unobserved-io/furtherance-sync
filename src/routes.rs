@@ -14,13 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
-
 use axum::{
     body::Body,
-    extract::{Query, State},
+    extract::State,
     http::{Request, StatusCode},
-    middleware::{from_fn, from_fn_with_state, Next},
+    middleware::{from_fn_with_state, Next},
     response::IntoResponse,
     routing::{get, post},
     Router,

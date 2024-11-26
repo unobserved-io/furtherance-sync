@@ -27,6 +27,10 @@ mod register;
 mod routes;
 mod sync;
 mod tasks;
+mod tests {
+    mod common;
+    mod security;
+}
 
 #[cfg(feature = "official")]
 mod billing;
