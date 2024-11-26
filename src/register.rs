@@ -19,6 +19,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     Form, Json,
 };
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
@@ -61,6 +62,11 @@ pub struct TempRegistration {
     pub verification_token: String,
 }
 
+fn is_valid_email(email: &str) -> bool {
+    let email_regex = Regex::new(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$").unwrap();
+    email_regex.is_match(email)
+}
+
 // Web interface handlers
 pub async fn show_register(State(state): State<AppState>) -> impl IntoResponse {
     let data = RegisterPageData {
@@ -83,7 +89,18 @@ pub async fn handle_register(
     State(state): State<AppState>,
     Form(form): Form<RegisterForm>,
 ) -> Response {
-    // Basic validation
+    // Email validation
+    if !is_valid_email(&form.email) {
+        let data = RegisterPageData {
+            error_msg: Some("Enter a valid email address".to_string()),
+            success_msg: None,
+            #[cfg(feature = "official")]
+            official: true,
+        };
+        return render_register_page(&state, data);
+    }
+
+    // Password length validation
     if form.password.len() < 8 {
         let data = RegisterPageData {
             error_msg: Some("Password must be at least 8 characters long".to_string()),
@@ -94,6 +111,7 @@ pub async fn handle_register(
         return render_register_page(&state, data);
     }
 
+    // Unique email validation
     if let Ok(Some(_)) = database::get_user_id_by_email(&state.db, &form.email).await {
         return render_register_page(
             &state,
@@ -136,12 +154,20 @@ pub async fn handle_register(
     }
 }
 
+// TODO: DELETE? May be unused
 // API registration handler
 pub async fn api_register(
     State(state): State<AppState>,
     Json(register): Json<RegisterRequest>,
 ) -> Response {
     // Basic validation
+    if !is_valid_email(&register.email) {
+        return Json(serde_json::json!({
+            "error": "Please enter a valid email address"
+        }))
+        .into_response();
+    }
+
     if register.password.len() < 8 {
         return Json(serde_json::json!({
             "error": "Password must be at least 8 characters long"
