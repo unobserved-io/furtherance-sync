@@ -114,7 +114,10 @@ async fn main() -> std::io::Result<()> {
 
     let router = configure_routes(state);
 
+    #[cfg(feature = "official")]
     let server = "127.0.0.1:8662";
+    #[cfg(feature = "self-hosted")]
+    let server = "0.0.0.0:8662";
 
     let listener = tokio::net::TcpListener::bind(&server).await?;
     info!("Server running on {}", &server);
