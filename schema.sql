@@ -1,3 +1,23 @@
+CREATE TABLE IF NOT EXISTS system_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS organizations (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    stripe_customer_id VARCHAR(255),
+    subscription_status VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS organization_roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    description TEXT,
+    UNIQUE(name)
+);
+
 -- SELF-HOSTED USERS TABLE
 -- CREATE TABLE IF NOT EXISTS users (
 --     id SERIAL PRIMARY KEY,
@@ -21,39 +41,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS user_tokens (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    refresh_token TEXT NOT NULL UNIQUE,
-    device_id_hash TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, device_id_hash)
-);
-
-CREATE TABLE IF NOT EXISTS password_reset_tokens (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    token TEXT NOT NULL UNIQUE,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    used BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS organizations (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    stripe_customer_id VARCHAR(255),
-    subscription_status VARCHAR(50),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS organization_roles (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    description TEXT,
-    UNIQUE(name)
-);
-
 CREATE TABLE IF NOT EXISTS organization_invites (
     id SERIAL PRIMARY KEY,
     organization_id INTEGER REFERENCES organizations(id),
@@ -72,6 +59,24 @@ CREATE TABLE IF NOT EXISTS organization_members (
     role_id INTEGER REFERENCES organization_roles(id),
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (organization_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    refresh_token TEXT NOT NULL UNIQUE,
+    device_id_hash TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, device_id_hash)
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    token TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS temporary_registrations (

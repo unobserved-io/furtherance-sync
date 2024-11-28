@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use crate::{models::AppState, routes::configure_routes};
+use crate::{database, models::AppState, routes::configure_routes};
 use axum::Router;
 use handlebars::Handlebars;
 use sqlx::PgPool;
@@ -28,12 +28,19 @@ use crate::official::email::EmailConfig;
 async fn setup_test_db() -> PgPool {
     let database_url =
         std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL must be set for tests");
-    PgPool::connect(&database_url).await.unwrap()
+
+    let pool = PgPool::connect(&database_url).await.unwrap();
+
+    // Initialize server key
+    database::ensure_server_key(&pool).await.unwrap();
+
+    pool
 }
 
 // Helper to create test app state
 pub async fn setup_test_state() -> AppState {
     let db = setup_test_db().await;
+
     let mut hb = Handlebars::new();
     // Register minimal templates needed for tests
     hb.register_template_string(
@@ -45,16 +52,6 @@ pub async fn setup_test_state() -> AppState {
         .unwrap();
     hb.register_template_string("error", include_str!("../../templates/error.hbs"))
         .unwrap();
-    // hb.register_template_string("error", "templates/error.hbs")
-    //     .unwrap();
-    // hb.register_template_string("encryption", "templates/pages/encryption.hbs")
-    //     .unwrap();
-    // hb.register_template_string("login", "templates/pages/login.hbs")
-    //     .unwrap();
-    // hb.register_template_string("nav", "templates/pages/nav.hbs")
-    //     .unwrap();
-    // hb.register_template_string("register", "templates/pages/register.hbs")
-    //     .unwrap();
 
     AppState {
         db: Arc::new(db),

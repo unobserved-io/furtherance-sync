@@ -35,7 +35,6 @@ USER furtherance
 
 # Environment variables
 ENV DATABASE_URL=postgres://postgres:postgres@localhost:5432/furtherance
-ENV FUR_SECRET_KEY=change_this_to_a_secure_key
 
 # Expose the port used by the server
 EXPOSE 8662

@@ -70,7 +70,7 @@ pub async fn api_auth_middleware(
     let auth_result = if let Some(auth_header) = request.headers().get("Authorization") {
         if let Ok(auth_str) = auth_header.to_str() {
             let token = auth_str.replace("Bearer ", "");
-            verify_access_token(&token).ok()
+            verify_access_token(&state.db, &token).await.ok()
         } else {
             None
         }
@@ -121,7 +121,7 @@ impl FromRequestParts<AppState> for AuthUser {
 
     async fn from_request_parts(
         parts: &mut Parts,
-        _state: &AppState,
+        state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         // First try web session
         let jar = CookieJar::from_headers(&parts.headers);
@@ -135,7 +135,7 @@ impl FromRequestParts<AppState> for AuthUser {
         if let Some(auth_header) = parts.headers.get("Authorization") {
             if let Ok(auth_str) = auth_header.to_str() {
                 let token = auth_str.replace("Bearer ", "");
-                if let Ok(user_id) = verify_access_token(&token) {
+                if let Ok(user_id) = verify_access_token(&state.db, &token).await {
                     return Ok(AuthUser(user_id));
                 }
             }

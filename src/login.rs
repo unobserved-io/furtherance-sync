@@ -83,7 +83,7 @@ pub async fn api_login(State(state): State<AppState>, Json(login): Json<LoginReq
         .into_response();
     }
 
-    let access_token = match auth::generate_access_token(user_id) {
+    let access_token = match auth::generate_access_token(&state.db, user_id).await {
         Ok(token) => token,
         Err(_) => {
             return Response::builder()

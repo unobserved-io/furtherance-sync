@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use base64::{prelude::BASE64_STANDARD, Engine};
+use rand::Rng;
 use sqlx::postgres::PgPool;
 use std::error::Error;
 use tracing::error;
@@ -36,40 +38,26 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     };
     let pool = PgPool::connect(&database_url).await?;
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS system_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    match ensure_server_key(&pool).await {
+        Ok(_) => {}
+        Err(e) => {
+            error!("Failed to ensure server key: {}", e);
+            return Err(e);
+        }
+    };
+
     #[cfg(feature = "official")]
     {
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
-                encryption_key_hash VARCHAR(255),
-                encryption_key_version INTEGER NOT NULL DEFAULT 0,
-                organization_id INTEGER REFERENCES organizations(id),
-                stripe_customer_id VARCHAR(255),
-                subscription_status VARCHAR(50),
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );"#,
-        )
-        .execute(&pool)
-        .await?;
-
-        sqlx::query!(
-            r#"
-        CREATE TABLE IF NOT EXISTS temporary_registrations (
-            id SERIAL PRIMARY KEY,
-            email VARCHAR(255) NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            verification_token VARCHAR(255) UNIQUE NOT NULL,
-            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-            used BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );"#,
-        )
-        .execute(&pool)
-        .await?;
-
         sqlx::query!(
             r#"
         CREATE TABLE IF NOT EXISTS organizations (
@@ -120,6 +108,38 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             role_id INTEGER REFERENCES organization_roles(id),
             joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (organization_id, user_id)
+        );"#,
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                encryption_key_hash VARCHAR(255),
+                encryption_key_version INTEGER NOT NULL DEFAULT 0,
+                organization_id INTEGER REFERENCES organizations(id),
+                stripe_customer_id VARCHAR(255),
+                subscription_status VARCHAR(50),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );"#,
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query!(
+            r#"
+        CREATE TABLE IF NOT EXISTS temporary_registrations (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            verification_token VARCHAR(255) UNIQUE NOT NULL,
+            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            used BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );"#,
         )
         .execute(&pool)
@@ -204,6 +224,26 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     .await?;
 
     Ok(pool)
+}
+
+pub async fn ensure_server_key(pool: &PgPool) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
+    let key = sqlx::query!("SELECT value FROM system_settings WHERE key = 'server_key'")
+        .fetch_optional(pool)
+        .await?;
+
+    match key {
+        Some(record) => Ok(record.value.into_bytes()),
+        None => {
+            let new_key = BASE64_STANDARD.encode(rand::thread_rng().gen::<[u8; 32]>());
+            sqlx::query!(
+                "INSERT INTO system_settings (key, value) VALUES ('server_key', $1)",
+                new_key
+            )
+            .execute(pool)
+            .await?;
+            Ok(new_key.into_bytes())
+        }
+    }
 }
 
 pub async fn insert_task(
@@ -1001,4 +1041,17 @@ pub async fn cleanup_temporary_registrations(pool: &PgPool) -> Result<u64, sqlx:
     .await?;
 
     Ok(result.len() as u64)
+}
+
+pub async fn fetch_server_key(pool: &PgPool) -> Result<Vec<u8>, sqlx::Error> {
+    let record = sqlx::query!(
+        r#"
+        SELECT value
+        FROM system_settings
+        WHERE key = 'server_key'"#
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(record.value.into_bytes())
 }

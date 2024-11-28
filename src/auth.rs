@@ -18,9 +18,12 @@ use std::error::Error;
 
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use time::{Duration, OffsetDateTime};
 use tracing::error;
 use uuid::Uuid;
+
+use crate::database;
 
 const ACCESS_TOKEN_DURATION: Duration = Duration::days(30);
 
@@ -30,15 +33,20 @@ pub struct Claims {
     pub exp: usize,
 }
 
-pub fn generate_access_token(user_id: i32) -> Result<String, Box<dyn Error + Send + Sync>> {
-    let secret_key = get_fur_secret_key()?;
+pub async fn generate_access_token(
+    pool: &PgPool,
+    user_id: i32,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
+    error!("Getting server key...");
+    let secret_key = get_server_key(pool).await?;
+    error!("Got server key: {} bytes", secret_key.len());
 
     let expiration = (OffsetDateTime::now_utc() + ACCESS_TOKEN_DURATION).unix_timestamp() as usize;
-
     let claims = Claims {
         sub: user_id,
         exp: expiration,
     };
+    error!("Attempting to encode JWT...");
 
     Ok(encode(
         &Header::default(),
@@ -51,8 +59,11 @@ pub fn generate_refresh_token() -> String {
     Uuid::new_v4().to_string()
 }
 
-pub fn verify_access_token(token: &str) -> Result<i32, Box<dyn Error + Send + Sync>> {
-    let secret_key = get_fur_secret_key()?;
+pub async fn verify_access_token(
+    pool: &PgPool,
+    token: &str,
+) -> Result<i32, Box<dyn Error + Send + Sync>> {
+    let secret_key = get_server_key(pool).await?;
 
     let token_data = decode::<Claims>(
         token,
@@ -63,11 +74,11 @@ pub fn verify_access_token(token: &str) -> Result<i32, Box<dyn Error + Send + Sy
     Ok(token_data.claims.sub)
 }
 
-pub fn get_fur_secret_key() -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
-    match std::env::var("FUR_SECRET_KEY") {
-        Ok(key) => Ok(key.into_bytes()),
+pub async fn get_server_key(pool: &PgPool) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
+    match database::fetch_server_key(pool).await {
+        Ok(key) => Ok(key),
         Err(e) => {
-            error!("FUR_SECRET_KEY environment variable not set: {}", e);
+            error!("Failed to get server key from database: {}", e);
             Err(Box::new(e))
         }
     }

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::auth;
+use crate::{auth, tests::common::setup_test_state};
 
 #[tokio::test]
 async fn test_refresh_token_uniqueness() {
@@ -25,8 +25,11 @@ async fn test_refresh_token_uniqueness() {
 
 #[tokio::test]
 async fn test_token_generation_and_verification() {
+    let state = setup_test_state().await;
     let user_id = 1;
-    let token = auth::generate_access_token(user_id).unwrap();
-    let verified_id = auth::verify_access_token(&token).unwrap();
+    let token = auth::generate_access_token(&state.db, user_id)
+        .await
+        .unwrap();
+    let verified_id = auth::verify_access_token(&state.db, &token).await.unwrap();
     assert_eq!(user_id, verified_id);
 }

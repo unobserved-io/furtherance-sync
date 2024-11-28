@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO system_settings (key, value) VALUES ('server_key', $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b4e151488b9a19f1bb0a2da44e7bb09c2732f501aa10badc2317685a73caa7cb"
+}

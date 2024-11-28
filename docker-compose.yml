@@ -7,7 +7,6 @@ services:
       - "8662:8662"
     environment:
       - DATABASE_URL=postgres://dbuser:dbpassword@db:5432/furtherance
-      - FUR_SECRET_KEY=secret_key
     depends_on:
       - db
     restart: unless-stopped
