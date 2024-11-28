@@ -122,7 +122,9 @@ async fn main() -> std::io::Result<()> {
     let listener = tokio::net::TcpListener::bind(&server).await?;
     info!("Server running on {}", &server);
 
-    axum::serve(listener, router).await?;
+    let service = router.into_make_service_with_connect_info::<std::net::SocketAddr>();
+
+    axum::serve(listener, service).await?;
     Ok(())
 }
 
