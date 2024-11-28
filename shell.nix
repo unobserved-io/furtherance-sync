@@ -6,7 +6,8 @@ pkgs.mkShell rec {
     cargo-bundle
     rustc
     cmake
-    libssl
+    pkg-config
+    openssl
   ];
 
 }
