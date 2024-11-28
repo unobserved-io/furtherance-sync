@@ -9,7 +9,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Build with self-hosted feature only
-RUN cargo build --release --no-default-features --features self-hosted
+RUN SQLX_OFFLINE=true cargo build --release --no-default-features --features self-hosted
 
 # Runtime stage
 FROM debian:bookworm-slim
