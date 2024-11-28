@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  app:
+    image: furtherance-sync:self-hosted
+    ports:
+      - "8662:8662"
+    environment:
+      - DATABASE_URL=postgres://dbuser:dbpassword@db:5432/furtherance
+      - FUR_SECRET_KEY=secret_key
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=furtherance
+      - POSTGRES_USER=dbuser
+      - POSTGRES_PASSWORD=dbpassword
+    volumes:
+      - furtherance_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  furtherance_data:
