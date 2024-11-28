@@ -18,7 +18,7 @@ WORKDIR /usr/local/bin/furtherance-sync
 
 # Install runtime dependencies
 RUN apt-get update && \
-    apt-get install -y libssl1.1 ca-certificates && \
+    apt-get install -y libssl3 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the built binary
