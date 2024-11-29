@@ -1,4 +1,4 @@
-FROM rust:1-slim-bookworm as builder
+FROM rust:1.82-slim-bookworm as builder
 
 WORKDIR /usr/src/furtherance-sync
 COPY . .
