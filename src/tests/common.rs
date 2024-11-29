@@ -24,6 +24,38 @@ use sqlx::PgPool;
 #[cfg(feature = "official")]
 use crate::official::email::EmailConfig;
 
+use std::net::SocketAddr;
+use tokio::net::TcpListener;
+
+pub struct TestApp {
+    pub address: String,
+}
+
+impl TestApp {
+    pub async fn new() -> TestApp {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("Failed to bind random port");
+        let address = listener.local_addr().unwrap().to_string();
+
+        let app_state = setup_test_state().await;
+        let app = configure_routes(app_state);
+
+        let server = axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        );
+
+        tokio::spawn(async move {
+            server.await.unwrap();
+        });
+
+        TestApp {
+            address: format!("http://{}", address),
+        }
+    }
+}
+
 // Helper function to create test database connection
 async fn setup_test_db() -> PgPool {
     let database_url =
@@ -44,6 +76,8 @@ pub async fn setup_test_state() -> AppState {
     let mut hb = Handlebars::new();
     // Register minimal templates needed for tests
     hb.register_template_string("base", include_str!("../../templates/layouts/base.hbs"))
+        .unwrap();
+    hb.register_template_string("nav", include_str!("../../templates/partials/nav.hbs"))
         .unwrap();
     hb.register_template_string(
         "register",

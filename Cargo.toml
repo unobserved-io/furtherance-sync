@@ -53,3 +53,6 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 urlencoding = "2.1"
 uuid = { version = "1.11", features = ["v4", "serde"] }
+
+[dev-dependencies]
+reqwest = "0.12"

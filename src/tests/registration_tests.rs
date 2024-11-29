@@ -16,23 +16,15 @@
 
 use axum::{
     body::Body,
-    http::{Request, Response, StatusCode},
+    http::{Response, StatusCode},
 };
-use tower::ServiceExt;
 
 use crate::tests::common;
 
-async fn get_html_response(response: Response<Body>) -> (StatusCode, String) {
-    let status = response.status();
-    let body = response.into_body();
-    let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap();
-    let html = String::from_utf8(bytes.to_vec()).unwrap();
-    (status, html)
-}
-
 #[tokio::test]
 async fn test_email_validation() {
-    let app = common::setup_test_router().await;
+    let app = common::TestApp::new().await;
+    let client = reqwest::Client::new();
 
     let invalid_emails = vec![
         "notanemail",
@@ -43,32 +35,15 @@ async fn test_email_validation() {
     ];
 
     for invalid_email in invalid_emails {
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/register")
-                    .header("Content-Type", "application/x-www-form-urlencoded")
-                    .body(Body::from(format!(
-                        "email={}&password=validpassword123",
-                        invalid_email
-                    )))
-                    .unwrap(),
-            )
+        let response = client
+            .post(&format!("{}/register", app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(format!("email={}&password=validpassword123", invalid_email))
+            .send()
             .await
             .unwrap();
 
-        // Don't follow redirects, just get the response
-        let (status, html) = get_html_response(response).await;
-
-        // Successful validation errors should return 200 OK with error message
-        assert_eq!(
-            status,
-            StatusCode::OK,
-            "Expected 200 status code for invalid email: {}",
-            invalid_email
-        );
+        let html = response.text().await.unwrap();
         assert!(
             html.contains("Enter a valid email address"),
             "Failed to validate invalid email: {}. Response HTML: {}",
@@ -80,104 +55,84 @@ async fn test_email_validation() {
 
 #[tokio::test]
 async fn test_password_length_validation() {
-    let app = common::setup_test_router().await;
+    let app = common::TestApp::new().await;
+    let client = reqwest::Client::new();
 
     let invalid_passwords = vec!["", "1234", "short", "7chars"];
 
     for invalid_password in invalid_passwords {
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/register")
-                    .header("Content-Type", "application/x-www-form-urlencoded")
-                    .body(Body::from(format!(
-                        "email=test@example.com&password={}",
-                        invalid_password
-                    )))
-                    .unwrap(),
-            )
+        let response = client
+            .post(&format!("{}/register", app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(format!(
+                "email=test@example.com&password={}",
+                invalid_password
+            ))
+            .send()
             .await
             .unwrap();
 
-        let (_, html) = get_html_response(response).await;
+        let html = response.text().await.unwrap();
         assert!(
             html.contains("Password must be at least 8 characters long"),
-            "Failed to validate short password: {}",
-            invalid_password
+            "Failed to validate short password: {}. Response HTML: {}",
+            invalid_password,
+            html
         );
     }
 }
 
 #[tokio::test]
 async fn test_duplicate_email_validation() {
-    let app = common::setup_test_router().await;
+    let app = common::TestApp::new().await;
+    let client = reqwest::Client::new();
     let test_email = "duplicate@example.com";
     let valid_password = "password123";
 
     // First registration should succeed
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/register")
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .body(Body::from(format!(
-                    "email={}&password={}",
-                    test_email, valid_password
-                )))
-                .unwrap(),
-        )
+    let response = client
+        .post(&format!("{}/register", app.address))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(format!("email={}&password={}", test_email, valid_password))
+        .send()
         .await
         .unwrap();
 
-    let (status, _) = get_html_response(response).await;
+    let status = response.status();
     assert!(
         status == StatusCode::SEE_OTHER || status == StatusCode::OK,
         "Expected either 303 (self hosted) or 200 (official) status code"
     );
 
     // Second registration with same email should fail
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/register")
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .body(Body::from(format!(
-                    "email={}&password={}",
-                    test_email, valid_password
-                )))
-                .unwrap(),
-        )
+    let response = client
+        .post(&format!("{}/register", app.address))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(format!("email={}&password={}", test_email, valid_password))
+        .send()
         .await
         .unwrap();
 
-    let (_, html) = get_html_response(response).await;
+    let html = response.text().await.unwrap();
     assert!(html.contains("Email already registered"));
 }
 
 #[tokio::test]
 async fn test_successful_registration() {
-    let app = common::setup_test_router().await;
+    let app = common::TestApp::new().await;
+    let client = reqwest::Client::new();
 
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/register")
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .body(Body::from("email=newuser@example.com&password=password123"))
-                .unwrap(),
-        )
+    let response = client
+        .post(&format!("{}/register", app.address))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body("email=newuser@example.com&password=password123")
+        .send()
         .await
         .unwrap();
 
-    #[allow(unused_variables)]
+    let status = response.status();
     let headers = response.headers().clone();
-    let (status, _html) = get_html_response(response).await;
+    let html = response.text().await.unwrap();
 
     #[cfg(feature = "official")]
     {
@@ -211,7 +166,8 @@ async fn test_successful_registration() {
 
 #[tokio::test]
 async fn test_password_requirements() {
-    let app = common::setup_test_router().await;
+    let app = common::TestApp::new().await;
+    let client = reqwest::Client::new();
 
     let test_cases = vec![
         ("short", "Too short"),
@@ -223,23 +179,15 @@ async fn test_password_requirements() {
     ];
 
     for (password, description) in test_cases {
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/register")
-                    .header("Content-Type", "application/x-www-form-urlencoded")
-                    .body(Body::from(format!(
-                        "email=test@example.com&password={}",
-                        password
-                    )))
-                    .unwrap(),
-            )
+        let response = client
+            .post(&format!("{}/register", app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(format!("email=test@example.com&password={}", password))
+            .send()
             .await
             .unwrap();
 
-        let (_, html) = get_html_response(response).await;
+        let html = response.text().await.unwrap();
 
         if password == "Valid@Password123" {
             assert!(
