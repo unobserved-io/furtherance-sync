@@ -25,7 +25,6 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::CookieJar;
-use tracing::error;
 
 use crate::{auth::verify_access_token, models::AppState};
 
