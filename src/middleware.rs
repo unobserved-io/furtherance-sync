@@ -153,7 +153,6 @@ pub async fn sanitize_query_params(
 ) -> Response {
     if let Some(Query(params)) = query {
         if let Some(message) = params.get("message") {
-            error!("Found message: {}", message);
             if message.len() > 1000 {
                 return Redirect::to("/login").into_response();
             }
