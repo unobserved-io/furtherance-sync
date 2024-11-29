@@ -96,9 +96,3 @@ pub async fn setup_test_state() -> AppState {
         email_config: Arc::new(EmailConfig::from_env().unwrap()),
     }
 }
-
-pub async fn setup_test_router() -> Router {
-    let app_state = setup_test_state().await;
-
-    configure_routes(app_state)
-}
