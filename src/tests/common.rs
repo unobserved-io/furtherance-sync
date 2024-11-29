@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use crate::{database, models::AppState, routes::configure_routes};
-use axum::Router;
 use handlebars::Handlebars;
 use sqlx::PgPool;
 
