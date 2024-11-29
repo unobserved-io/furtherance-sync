@@ -18,35 +18,27 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
-use crate::tests::common::setup_test_router;
+use crate::tests::common;
 
 #[tokio::test]
 async fn test_login_message_sanitization() {
-    let app = setup_test_router().await;
+    let app = common::TestApp::new().await;
+    let client = reqwest::Client::new();
 
     // Test invalid message
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri("/login?message=invalid_message")
-                .body(Body::empty())
-                .unwrap(),
-        )
+    let response = client
+        .get(&format!("{}/login?message=invalid_message", app.address))
+        .send()
         .await
         .unwrap();
 
-    // Should redirect (either 302 Found or 303 See Other)
-    assert!(response.status().is_redirection());
+    // Should redirect to /login
+    assert_eq!(response.url().to_string(), format!("{}/login", app.address));
 
     // Test valid message
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/login?message=session_expired")
-                .body(Body::empty())
-                .unwrap(),
-        )
+    let response = client
+        .get(&format!("{}/login?message=session_expired", app.address))
+        .send()
         .await
         .unwrap();
 
@@ -56,30 +48,22 @@ async fn test_login_message_sanitization() {
 
 #[tokio::test]
 async fn test_auth_middleware() {
-    let app = setup_test_router().await;
+    let app = common::TestApp::new().await;
+    let client = reqwest::Client::new();
 
     // Test protected route without auth
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri("/api/sync")
-                .body(Body::empty())
-                .unwrap(),
-        )
+    let response = client
+        .get(&format!("{}/api/sync", app.address))
+        .send()
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 
     // Test public route without auth
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/login")
-                .body(Body::empty())
-                .unwrap(),
-        )
+    let response = client
+        .get(&format!("{}/login", app.address))
+        .send()
         .await
         .unwrap();
 

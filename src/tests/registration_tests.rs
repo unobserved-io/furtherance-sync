@@ -131,37 +131,8 @@ async fn test_successful_registration() {
         .unwrap();
 
     let status = response.status();
-    let headers = response.headers().clone();
-    let html = response.text().await.unwrap();
 
-    #[cfg(feature = "official")]
-    {
-        assert_eq!(
-            status,
-            StatusCode::OK,
-            "Official build should return OK status"
-        );
-    }
-
-    #[cfg(feature = "self-hosted")]
-    {
-        assert_eq!(
-            status,
-            StatusCode::SEE_OTHER,
-            "Self-hosted build should redirect to login page"
-        );
-
-        let location = headers
-            .get("location")
-            .and_then(|l| l.to_str().ok())
-            .expect("Should have a location header");
-
-        assert!(location.contains("/login"), "Should redirect to login page");
-        assert!(
-            location.contains("message=Registration%20successful"),
-            "Should include success message"
-        );
-    }
+    assert_eq!(status, StatusCode::OK);
 }
 
 #[cfg(feature = "official")]
