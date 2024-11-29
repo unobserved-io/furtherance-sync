@@ -162,6 +162,7 @@ pub async fn handle_login(
         Ok(Some(user_id)) => {
             let mut cookie = Cookie::new("session", user_id.to_string());
             cookie.set_path("/");
+            #[cfg(feature = "official")]
             cookie.set_secure(true);
             cookie.set_http_only(true);
             cookie.set_max_age(Some(time::Duration::days(30)));
