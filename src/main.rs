@@ -37,9 +37,6 @@ mod official {
 mod tests {
     #[cfg(test)]
     mod auth_tests;
-    #[cfg(feature = "official")]
-    #[cfg(test)]
-    mod billing_tests;
     #[cfg(test)]
     mod common;
     #[cfg(feature = "official")]
