@@ -27,16 +27,13 @@ pub async fn generate_access_token(
     pool: &PgPool,
     user_id: i32,
 ) -> Result<String, Box<dyn Error + Send + Sync>> {
-    error!("Getting server key...");
     let secret_key = get_server_key(pool).await?;
-    error!("Got server key: {} bytes", secret_key.len());
 
     let expiration = (OffsetDateTime::now_utc() + ACCESS_TOKEN_DURATION).unix_timestamp() as usize;
     let claims = Claims {
         sub: user_id,
         exp: expiration,
     };
-    error!("Attempting to encode JWT...");
 
     Ok(encode(
         &Header::default(),
