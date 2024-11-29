@@ -147,18 +147,20 @@ async fn test_password_requirements() {
         ("Valid@Password123", "Valid password"),
     ];
 
-    for (password, description) in test_cases {
+    for (i, (password, description)) in test_cases.iter().enumerate() {
+        let email = format!("test{}@example.com", i);
+
         let response = client
             .post(&format!("{}/register", app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(format!("email=test@example.com&password={}", password))
+            .body(format!("email={}&password={}", email, password))
             .send()
             .await
             .unwrap();
 
         let html = response.text().await.unwrap();
 
-        if password == "Valid@Password123" {
+        if password == &"Valid@Password123" {
             assert!(
                 !html.contains("Password must be at least 8 characters"),
                 "Valid password '{}' was rejected",
