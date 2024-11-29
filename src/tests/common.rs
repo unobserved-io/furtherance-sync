@@ -43,6 +43,8 @@ pub async fn setup_test_state() -> AppState {
 
     let mut hb = Handlebars::new();
     // Register minimal templates needed for tests
+    hb.register_template_string("base", include_str!("../../templates/layouts/base.hbs"))
+        .unwrap();
     hb.register_template_string(
         "register",
         include_str!("../../templates/pages/register.hbs"),
