@@ -75,16 +75,10 @@ pub async fn handle_sync(
 
     let server_timestamp = time::OffsetDateTime::now_utc().unix_timestamp();
 
-    // TODO: Check later if these actually make a difference
-    let mut task_ids_updated: Vec<&str> = Vec::new();
-    let mut shortcut_ids_updated: Vec<&str> = Vec::new();
-
     // Process incoming tasks
     for encrypted_task in &sync_data.tasks {
         if let Err(e) = insert_task(&state.db, encrypted_task, user_id, &refresh_token).await {
             error!("Error processing task: {}", e);
-        } else {
-            task_ids_updated.push(&encrypted_task.uid);
         }
     }
 
@@ -94,8 +88,6 @@ pub async fn handle_sync(
             insert_shortcut(&state.db, encrypted_shortcut, user_id, &refresh_token).await
         {
             error!("Error processing shortcut: {}", e);
-        } else {
-            shortcut_ids_updated.push(&encrypted_shortcut.uid);
         }
     }
 
@@ -141,9 +133,6 @@ pub async fn handle_sync(
         }
     }
 
-    // println!("{} Client tasks received", sync_data.tasks.len());
-    // println!("{} Client shortcuts received", sync_data.shortcuts.len());
-
     let response = SyncResponse {
         server_timestamp,
         tasks: tasks_to_send,
@@ -151,16 +140,6 @@ pub async fn handle_sync(
         orphaned_tasks,
         orphaned_shortcuts,
     };
-
-    // TODO: Check if task_id_update or shortcut_ids_updated matches any of the tasks to send. If so, will need to remove them before sending.
-
-    // println!("{} tasks sent", response.tasks.len());
-    // println!("{} shortcuts sent", response.shortcuts.len());
-    // println!("{} orphaned tasks sent", response.orphaned_tasks.len());
-    // println!(
-    //     "{} orphaned shortcuts sent",
-    //     response.orphaned_shortcuts.len()
-    // );
 
     Json(response).into_response()
 }
