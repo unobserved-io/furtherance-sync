@@ -141,9 +141,8 @@ pub async fn handle_sync(
         }
     }
 
-    // TODO: Remove
-    println!("{} Client tasks received", sync_data.tasks.len());
-    println!("{} Client shortcuts received", sync_data.shortcuts.len());
+    // println!("{} Client tasks received", sync_data.tasks.len());
+    // println!("{} Client shortcuts received", sync_data.shortcuts.len());
 
     let response = SyncResponse {
         server_timestamp,
@@ -155,13 +154,13 @@ pub async fn handle_sync(
 
     // TODO: Check if task_id_update or shortcut_ids_updated matches any of the tasks to send. If so, will need to remove them before sending.
 
-    println!("{} tasks sent", response.tasks.len());
-    println!("{} shortcuts sent", response.shortcuts.len());
-    println!("{} orphaned tasks sent", response.orphaned_tasks.len());
-    println!(
-        "{} orphaned shortcuts sent",
-        response.orphaned_shortcuts.len()
-    );
+    // println!("{} tasks sent", response.tasks.len());
+    // println!("{} shortcuts sent", response.shortcuts.len());
+    // println!("{} orphaned tasks sent", response.orphaned_tasks.len());
+    // println!(
+    //     "{} orphaned shortcuts sent",
+    //     response.orphaned_shortcuts.len()
+    // );
 
     Json(response).into_response()
 }
