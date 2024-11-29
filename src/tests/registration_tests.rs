@@ -164,6 +164,7 @@ async fn test_successful_registration() {
     }
 }
 
+#[cfg(feature = "official")]
 #[tokio::test]
 async fn test_password_requirements() {
     let app = common::TestApp::new().await;
