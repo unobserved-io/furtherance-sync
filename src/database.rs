@@ -6,7 +6,7 @@
 
 use base64::{prelude::BASE64_STANDARD, Engine};
 use rand::Rng;
-use sqlx::postgres::PgPool;
+use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
 use std::error::Error;
 use tracing::error;
 
@@ -53,11 +53,19 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     })?;
     let database = std::env::var("POSTGRES_DATABASE").unwrap_or("furtherance".to_string());
 
-    let database_url = format!(
-        "postgres://{}:{}@{}:{}/{}",
-        user, password, host, port, database
-    );
-    let pool = PgPool::connect(&database_url).await?;
+    let ssl_mode = sqlx::postgres::PgSslMode::Prefer;
+    let options = PgConnectOptions::new()
+        .host(&host)
+        .port(port.parse().unwrap_or(5432))
+        .username(&user)
+        .password(&password)
+        .database(&database)
+        .ssl_mode(ssl_mode);
+
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect_with(options)
+        .await?;
 
     sqlx::query(
         r#"
