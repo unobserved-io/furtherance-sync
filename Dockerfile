@@ -1,4 +1,4 @@
-FROM rust:1.82-slim-bookworm as builder
+FROM rust:1.82-slim-bookworm AS builder
 
 WORKDIR /usr/src/furtherance-sync
 COPY . .
@@ -32,9 +32,6 @@ RUN useradd -r -s /bin/false furtherance && \
     chown -R furtherance:furtherance /usr/local/bin/furtherance-sync
 
 USER furtherance
-
-# Environment variables
-ENV DATABASE_URL=postgres://postgres:postgres@localhost:5432/furtherance
 
 # Expose the port used by the server
 EXPOSE 8662
