@@ -6,7 +6,11 @@ services:
     ports:
       - "8662:8662"
     environment:
-      - DATABASE_URL=postgres://dbuser:dbpassword@db:5432/furtherance
+      - POSTGRES_DATABASE=furtherance
+      - POSTGRES_USER=dbuser
+      - POSTGRES_PASSWORD=dbpassword
+      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=db
     depends_on:
       - db
     restart: unless-stopped
