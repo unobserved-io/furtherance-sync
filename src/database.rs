@@ -53,6 +53,12 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     })?;
     let database = std::env::var("POSTGRES_DATABASE").unwrap_or("furtherance".to_string());
 
+    error!("DEBUG: Connection details:");
+    error!("Host: {}", host);
+    error!("Port: {}", port);
+    error!("User: {}", user);
+    error!("Database: {}", database);
+
     let ssl_mode = sqlx::postgres::PgSslMode::Prefer;
     let options = PgConnectOptions::new()
         .host(&host)
