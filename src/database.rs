@@ -18,14 +18,45 @@ use crate::{
 #[cfg(feature = "official")]
 use crate::register::TempRegistration;
 
-pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
-    let database_url = match std::env::var("DATABASE_URL") {
-        Ok(url) => url,
-        Err(e) => {
-            error!("DATABASE_URL environment variable not set: {}", e);
-            return Err(Box::new(e));
+fn running_in_container() -> bool {
+    // Check for .dockerenv file (Docker)
+    if std::path::Path::new("/.dockerenv").exists() {
+        return true;
+    }
+
+    // Check cgroup (works for Docker, Podman, and other containers)
+    if let Ok(contents) = std::fs::read_to_string("/proc/1/cgroup") {
+        if !contents.lines().all(|line| line.contains(":/")) {
+            return true;
         }
-    };
+    }
+
+    false
+}
+
+fn get_database_host(host: &str) -> String {
+    if running_in_container() && (host == "localhost" || host == "127.0.0.1") {
+        "host.docker.internal".to_string()
+    } else {
+        host.to_string()
+    }
+}
+
+pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
+    let host =
+        get_database_host(&std::env::var("POSTGRES_HOST").unwrap_or("localhost".to_string()));
+    let port = std::env::var("POSTGRES_PORT").unwrap_or("5432".to_string());
+    let user = std::env::var("POSTGRES_USER").unwrap_or("postgres".to_string());
+    let password = std::env::var("POSTGRES_PASSWORD").map_err(|e| {
+        error!("POSTGRES_PASSWORD environment variable not set: {}", e);
+        e
+    })?;
+    let database = std::env::var("POSTGRES_DATABASE").unwrap_or("furtherance".to_string());
+
+    let database_url = format!(
+        "postgres://{}:{}@{}:{}/{}",
+        user, password, host, port, database
+    );
     let pool = PgPool::connect(&database_url).await?;
 
     sqlx::query(
