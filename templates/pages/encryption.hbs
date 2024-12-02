@@ -240,16 +240,29 @@
 
             function confirmGenerate() {
                 const confirmationInput = document.getElementById('confirmationInput');
+                const errorMessage = document.getElementById('confirmationError');
                 if (confirmationInput.value === 'generate') {
                     generateKey('generate');
+                    if (errorMessage) errorMessage.style.display = 'none';
                 } else {
-                    alert('Please type "generate" to confirm');
+                    if (!errorMessage) {
+                        const error = document.createElement('div');
+                        error.id = 'confirmationError';
+                        error.style.color = '#dc3545';
+                        error.style.marginTop = '5px';
+                        error.textContent = 'Type "generate" (without the quotation marks) to confirm';
+                        confirmationInput.parentNode.insertBefore(error, confirmationInput.nextSibling);
+                    } else {
+                        errorMessage.style.display = 'block';
+                    }
                 }
             }
 
             function cancelGenerate() {
                 document.getElementById('confirmationDialog').style.display = 'none';
                 document.getElementById('confirmationInput').value = '';
+                const errorMessage = document.getElementById('confirmationError');
+                if (errorMessage) errorMessage.style.display = 'none';
             }
 
             function closeModal() {
