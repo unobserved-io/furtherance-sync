@@ -7,7 +7,7 @@ license = "Elastic-2.0"
 [features]
 default = ["self-hosted"]
 self-hosted = []
-official = []
+official = ["dep:async-stripe", "dep:lettre"]
 
 [profile.release]
 lto = true
@@ -15,7 +15,9 @@ lto = true
 [dependencies]
 aes-gcm = "0.10"
 argon2 = "0.5"
-async-stripe = { version = "0.39.1", features = ["runtime-tokio-hyper"] }
+async-stripe = { version = "0.39.1", features = [
+    "runtime-tokio-hyper",
+], optional = true }
 axum = "0.7"
 axum-extra = { version = "0.9", features = ["cookie"] }
 base64 = "0.22"
@@ -23,7 +25,10 @@ bcrypt = "0.15"
 blake3 = "1.5"
 handlebars = "6.2"
 jsonwebtoken = "9.3"
-lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls"] }
+lettre = { version = "0.11", features = [
+    "tokio1",
+    "tokio1-native-tls",
+], optional = true }
 rand = "0.8"
 regex = "1.11"
 serde = { version = "1.0", features = ["derive"] }
