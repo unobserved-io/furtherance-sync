@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        CREATE TABLE IF NOT EXISTS organizations (\n            id SERIAL PRIMARY KEY,\n            name VARCHAR(255) NOT NULL,\n            stripe_customer_id VARCHAR(255),\n            subscription_status VARCHAR(50),\n            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP\n        );",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "a559b081d6a1f6ad85be59d0f6ab929ceb6efc2b3b34a2a73d73c6e79126d294"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        CREATE TABLE IF NOT EXISTS organization_roles (\n            id SERIAL PRIMARY KEY,\n            name VARCHAR(50) NOT NULL,\n            description TEXT,\n            UNIQUE(name)\n        );",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "a8b630d7e6066d480d4e2121a7fe9120cd8ea896ec2ae21de9b626ff2074312f"
+}

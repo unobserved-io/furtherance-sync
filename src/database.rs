@@ -85,10 +85,8 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
         }
     };
 
-    #[cfg(feature = "official")]
-    {
-        sqlx::query!(
-            r#"
+    sqlx::query!(
+        r#"
         CREATE TABLE IF NOT EXISTS organizations (
             id SERIAL PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
@@ -96,24 +94,24 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             subscription_status VARCHAR(50),
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );"#,
-        )
-        .execute(&pool)
-        .await?;
+    )
+    .execute(&pool)
+    .await?;
 
-        sqlx::query!(
-            r#"
+    sqlx::query!(
+        r#"
         CREATE TABLE IF NOT EXISTS organization_roles (
             id SERIAL PRIMARY KEY,
             name VARCHAR(50) NOT NULL,
             description TEXT,
             UNIQUE(name)
         );"#,
-        )
-        .execute(&pool)
-        .await?;
+    )
+    .execute(&pool)
+    .await?;
 
-        sqlx::query!(
-            r#"
+    sqlx::query!(
+        r#"
         CREATE TABLE IF NOT EXISTS organization_invites (
             id SERIAL PRIMARY KEY,
             organization_id INTEGER REFERENCES organizations(id),
@@ -125,12 +123,12 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             used BOOLEAN NOT NULL DEFAULT FALSE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );"#,
-        )
-        .execute(&pool)
-        .await?;
+    )
+    .execute(&pool)
+    .await?;
 
-        sqlx::query!(
-            r#"
+    sqlx::query!(
+        r#"
         CREATE TABLE IF NOT EXISTS organization_members (
             organization_id INTEGER REFERENCES organizations(id),
             user_id INTEGER REFERENCES users(id),
@@ -138,12 +136,12 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (organization_id, user_id)
         );"#,
-        )
-        .execute(&pool)
-        .await?;
+    )
+    .execute(&pool)
+    .await?;
 
-        sqlx::query(
-            r#"
+    sqlx::query(
+        r#"
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 email VARCHAR(255) UNIQUE NOT NULL,
@@ -155,12 +153,12 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
                 subscription_status VARCHAR(50),
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );"#,
-        )
-        .execute(&pool)
-        .await?;
+    )
+    .execute(&pool)
+    .await?;
 
-        sqlx::query!(
-            r#"
+    sqlx::query!(
+        r#"
         CREATE TABLE IF NOT EXISTS temporary_registrations (
             id SERIAL PRIMARY KEY,
             email VARCHAR(255) NOT NULL,
@@ -168,22 +166,6 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
             verification_token VARCHAR(255) UNIQUE NOT NULL,
             expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
             used BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );"#,
-        )
-        .execute(&pool)
-        .await?;
-    }
-
-    #[cfg(feature = "self-hosted")]
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            encryption_key_hash VARCHAR(255),
-            encryption_key_version INTEGER NOT NULL DEFAULT 0,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );"#,
     )

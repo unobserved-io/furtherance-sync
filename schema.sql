@@ -18,17 +18,6 @@ CREATE TABLE IF NOT EXISTS organization_roles (
     UNIQUE(name)
 );
 
--- SELF-HOSTED USERS TABLE
--- CREATE TABLE IF NOT EXISTS users (
---     id SERIAL PRIMARY KEY,
---     email VARCHAR(255) UNIQUE NOT NULL,
---     password_hash VARCHAR(255) NOT NULL,
---     encryption_key_hash VARCHAR(255),
---     encryption_key_version INTEGER NOT NULL DEFAULT 0,
---     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
--- );
-
--- OFFICIAL USERS TABLE
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,

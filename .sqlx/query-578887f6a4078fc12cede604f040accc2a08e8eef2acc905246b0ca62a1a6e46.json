@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        CREATE TABLE IF NOT EXISTS organization_members (\n            organization_id INTEGER REFERENCES organizations(id),\n            user_id INTEGER REFERENCES users(id),\n            role_id INTEGER REFERENCES organization_roles(id),\n            joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,\n            PRIMARY KEY (organization_id, user_id)\n        );",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "578887f6a4078fc12cede604f040accc2a08e8eef2acc905246b0ca62a1a6e46"
+}
