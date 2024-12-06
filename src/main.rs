@@ -55,6 +55,9 @@ use official::email::EmailConfig;
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     init_logger();
+
+    info!("Starting Furtherance Sync v0.1.0");
+
     let pool = match database::db_init().await {
         Ok(pool) => Arc::new(pool),
         Err(e) => {
