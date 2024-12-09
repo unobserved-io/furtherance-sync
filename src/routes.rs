@@ -20,7 +20,7 @@ use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::services::ServeDir;
 
 use crate::{
-    database, encryption, login, logout,
+    account, database, encryption, login, logout,
     middleware::{api_auth_middleware, sanitize_query_params, web_auth_middleware},
     models::AppState,
     register, sync,
@@ -58,6 +58,12 @@ pub fn configure_routes(state: AppState) -> Router {
         .route("/encryption", get(encryption::show_encryption))
         .route("/encryption/generate", post(encryption::generate_key))
         .route("/logout", post(logout::handle_logout))
+        .route("/account", get(account::show_account))
+        .route(
+            "/account/change-password",
+            post(account::handle_change_password),
+        )
+        .route("/account/change-email", post(account::handle_change_email))
         .layer(from_fn_with_state(
             state.clone(),
             |state: State<AppState>, jar: CookieJar, req: Request<Body>, next: Next| async move {

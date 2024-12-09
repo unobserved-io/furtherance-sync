@@ -74,3 +74,36 @@ pub async fn send_password_reset_email(
 
     Ok(())
 }
+
+pub async fn send_email_change_verification(
+    config: &EmailConfig,
+    to_email: &str,
+    token: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let verification_url = format!(
+        "https://sync.furtherance.app/account/verify-email?token={}",
+        token
+    );
+
+    let email = Message::builder()
+        .from(format!("{} <{}>", config.from_name, config.from_email).parse()?)
+        .to(to_email.parse()?)
+        .subject("Verify Your New Email Address")
+        .body(format!(
+            "Hello,\n\n\
+            You recently requested to change your email address for your Furtherance Sync account. \
+            Click the link below to verify this email address:\n\n\
+            {}\n\n\
+            This link will expire in 1 hour.\n\n\
+            If you did not request this change, please ignore this email.\n\n\
+            Thank you for using Furtherance Sync!\n\n\
+            Sincerely,\n\
+            The Furtherance Team",
+            verification_url
+        ))?;
+
+    let mailer = config.create_transport();
+    mailer.send(email).await?;
+
+    Ok(())
+}

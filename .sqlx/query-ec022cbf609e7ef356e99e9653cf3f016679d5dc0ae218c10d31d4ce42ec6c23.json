@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT stripe_customer_id\n        FROM users\n        WHERE id = $1\n        ",
+  "query": "\n        SELECT password_hash\n        FROM users\n        WHERE id = $1\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "stripe_customer_id",
+        "name": "password_hash",
         "type_info": "Varchar"
       }
     ],
@@ -15,8 +15,8 @@
       ]
     },
     "nullable": [
-      true
+      false
     ]
   },
-  "hash": "1cefa5228b2db25bb42295abb6398ea678d1d3cf50eca5b53abd1e0729078f41"
+  "hash": "ec022cbf609e7ef356e99e9653cf3f016679d5dc0ae218c10d31d4ce42ec6c23"
 }

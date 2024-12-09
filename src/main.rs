@@ -4,6 +4,7 @@
 // This code is licensed under the Elastic License 2.0.
 // For details: https://www.elastic.co/licensing/elastic-license
 
+mod account;
 mod auth;
 mod database;
 mod encryption;
@@ -87,6 +88,8 @@ async fn main() -> std::io::Result<()> {
     hb.register_template_file("forgot-password", "templates/pages/forgot-password.hbs")
         .map_err(to_io_error)?;
     hb.register_template_file("reset-password", "templates/pages/reset-password.hbs")
+        .map_err(to_io_error)?;
+    hb.register_template_file("account", "templates/pages/account.hbs")
         .map_err(to_io_error)?;
     // Register partials
     hb.register_template_file("nav", "templates/partials/nav.hbs")

@@ -200,6 +200,21 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     .execute(&pool)
     .await?;
 
+    sqlx::query!(
+        r#"
+        CREATE TABLE IF NOT EXISTS email_change_tokens (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            new_email VARCHAR(255) NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            used BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );"#,
+    )
+    .execute(&pool)
+    .await?;
+
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS tasks (
@@ -841,7 +856,6 @@ pub async fn mark_reset_token_used(pool: &PgPool, token: &str) -> Result<(), sql
     Ok(())
 }
 
-#[cfg(feature = "official")]
 pub async fn update_password(
     pool: &PgPool,
     user_id: i32,
@@ -1065,4 +1079,66 @@ pub async fn fetch_server_key(pool: &PgPool) -> Result<Vec<u8>, sqlx::Error> {
     .await?;
 
     Ok(record.value.into_bytes())
+}
+
+pub async fn verify_current_password(
+    pool: &PgPool,
+    user_id: i32,
+    password: &str,
+) -> Result<bool, sqlx::Error> {
+    let record = sqlx::query!(
+        r#"
+        SELECT password_hash
+        FROM users
+        WHERE id = $1
+        "#,
+        user_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    if let Some(record) = record {
+        Ok(bcrypt::verify(password, &record.password_hash).unwrap_or(false))
+    } else {
+        Ok(false)
+    }
+}
+
+#[cfg(feature = "self-hosted")]
+pub async fn update_email(pool: &PgPool, user_id: i32, new_email: &str) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE users
+        SET email = $1
+        WHERE id = $2
+        "#,
+        new_email,
+        user_id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+#[cfg(feature = "official")]
+pub async fn store_email_change_token(
+    pool: &PgPool,
+    user_id: i32,
+    new_email: &str,
+    token: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        INSERT INTO email_change_tokens (user_id, new_email, token, expires_at)
+        VALUES ($1, $2, $3, NOW() + INTERVAL '1 hour')
+        "#,
+        user_id,
+        new_email,
+        token
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }
