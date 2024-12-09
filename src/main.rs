@@ -84,6 +84,10 @@ async fn main() -> std::io::Result<()> {
         .map_err(to_io_error)?;
     hb.register_template_file("register", "templates/pages/register.hbs")
         .map_err(to_io_error)?;
+    hb.register_template_file("forgot-password", "templates/pages/forgot-password.hbs")
+        .map_err(to_io_error)?;
+    hb.register_template_file("reset-password", "templates/pages/reset-password.hbs")
+        .map_err(to_io_error)?;
     // Register partials
     hb.register_template_file("nav", "templates/partials/nav.hbs")
         .map_err(to_io_error)?;
