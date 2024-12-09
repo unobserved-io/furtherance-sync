@@ -45,7 +45,7 @@ fn is_valid_email(email: &str) -> bool {
 }
 
 #[cfg(feature = "official")]
-fn is_password_valid(password: &str) -> bool {
+pub fn is_password_valid(password: &str) -> bool {
     let has_number = password.chars().any(|c| c.is_numeric());
     let has_special = password.chars().any(|c| "!@#$%^&*(),.?\"{}|<>".contains(c));
     let has_uppercase = password.chars().any(|c| c.is_uppercase());
