@@ -24,7 +24,6 @@ pub struct ChangeEmailForm {
 #[derive(Serialize)]
 struct AccountPageData {
     title: String,
-    active_page: String,
     error_msg: Option<String>,
     success_msg: Option<String>,
     user_email: String,
@@ -59,7 +58,6 @@ pub async fn show_account(State(state): State<AppState>, AuthUser(user_id): Auth
 
     let data = AccountPageData {
         title: "Account Settings".to_string(),
-        active_page: "account".to_string(),
         error_msg: None,
         success_msg: None,
         user_email,
@@ -230,7 +228,6 @@ async fn render_account_page(
 
     let data = AccountPageData {
         title: "Account Settings".to_string(),
-        active_page: "account".to_string(),
         error_msg: error_msg.map(String::from),
         success_msg: success_msg.map(String::from),
         user_email,
