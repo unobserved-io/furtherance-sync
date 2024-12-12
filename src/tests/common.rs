@@ -66,8 +66,6 @@ pub async fn setup_test_state() -> AppState {
     // Register minimal templates needed for tests
     hb.register_template_string("base", include_str!("../../templates/layouts/base.hbs"))
         .unwrap();
-    hb.register_template_string("nav", include_str!("../../templates/partials/nav.hbs"))
-        .unwrap();
     hb.register_template_string(
         "register",
         include_str!("../../templates/pages/register.hbs"),

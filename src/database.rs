@@ -1142,3 +1142,18 @@ pub async fn store_email_change_token(
 
     Ok(())
 }
+
+pub async fn get_user_email(pool: &PgPool, user_id: i32) -> Result<Option<String>, sqlx::Error> {
+    let record = sqlx::query!(
+        r#"
+        SELECT email
+        FROM users
+        WHERE id = $1
+        "#,
+        user_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(record.map(|r| r.email))
+}

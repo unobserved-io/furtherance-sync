@@ -39,7 +39,7 @@ pub struct TempRegistration {
     pub verification_token: String,
 }
 
-fn is_valid_email(email: &str) -> bool {
+pub fn is_valid_email(email: &str) -> bool {
     let email_regex = Regex::new(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$").unwrap();
     !email.is_empty() && email_regex.is_match(email) && email.contains('.')
 }

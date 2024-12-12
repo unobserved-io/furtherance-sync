@@ -1,42 +1,376 @@
 {{#> base}}
     {{#*inline "content"}}
-        <h2>Encryption Key Setup</h2>
+    <style>
+        :root {
+            --furtherance-purple: #B179F1;
+            --furtherance-purple-dark: #9b63e4;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --background: #121212;
+            --card-background: rgba(255, 255, 255, 0.05);
+            --message-background: rgba(177, 121, 241, 0.05);
+            --message-border: rgba(177, 121, 241, 0.2);
+            --message-text: var(--text-primary);
+            --message-icon-color: var(--furtherance-purple);
+            --button-warning: #dc3545;
+            --button-warning-hover: #c82333;
+        }
 
-        {{#if error_msg}}
-        <div class="error">{{error_msg}}</div>
-        {{/if}}
+        body {
+            background: var(--background);
+            color: var(--text-primary);
+            position: relative;
+        }
 
-        {{#if success_msg}}
-        <div class="success">{{success_msg}}</div>
-        {{/if}}
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at top right, var(--furtherance-purple) 0%, transparent 70%);
+            opacity: 0.2;
+            pointer-events: none;
+            z-index: -1;
+        }
 
-        <div class="warning">
-            <strong>Important:</strong>
-            <ul>
-                <li>Once generated, the key will only be shown once - <strong>you must save it
-                    immediately</strong>.</li>
-                <li><strong>Store it somewhere safe</strong> - if you lose it, you won't be able to
-                    access your encrypted data.</li>
-                <li>Your encryption key is used to protect your data.</li>
-                <li>This key is different from your password and is used to log into the Furtherance client.</li>
-            </ul>
+        /* Navigation */
+        .nav {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem 0;
+            z-index: 10;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 3rem;
+            align-items: center;
+            height: fit-content;
+        }
+
+        .nav-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+            display: inline-block;
+            align-items: center;
+        }
+
+        .nav-link:hover {
+            color: var(--furtherance-purple);
+        }
+
+        .nav-link.active {
+            position: relative;
+        }
+
+        .nav-link.active::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -4px;
+            height: 2px;
+            background: var(--furtherance-purple);
+            border-radius: 1px;
+        }
+
+        .logout-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+            display: inline-block;
+            align-items: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .logout-link:hover {
+            color: var(--furtherance-purple);
+        }
+
+        .content-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 80px 2rem 2rem 2rem;
+            min-height: calc(100vh - 80px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .card {
+            background: var(--card-background);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--furtherance-purple);
+            margin: 2rem 0;
+        }
+
+        .warning {
+            background: var(--message-background);
+            border: 1px solid var(--message-border);
+            padding: 1.5rem;
+            border-radius: 6px;
+            margin: 1.5rem 0;
+        }
+
+        .warning strong {
+            color: var(--furtherance-purple);
+            display: inline;
+        }
+
+        .warning ul {
+            list-style-position: inside;
+            color: var(--text-secondary);
+        }
+
+        .warning li {
+            margin: 0.5rem 0;
+        }
+
+        .key-status {
+            background: var(--card-background);
+            padding: 1.5rem;
+            border-radius: 6px;
+            margin: 1.5rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .key-status strong {
+            color: var(--furtherance-purple);
+
+        }
+
+        .key-details {
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .button {
+            background: var(--furtherance-purple);
+            color: var(--text-primary);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .button:hover {
+            background: var(--furtherance-purple-dark);
+        }
+
+        .button-warning {
+            background: transparent;
+            border: 1px solid var(--furtherance-purple);
+            color: var(--furtherance-purple);
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+        }
+
+        .button-warning:hover {
+            background: rgba(177, 121, 241, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
+        .button-cancel {
+            background-color: #565d64;
+        }
+
+        .button-cancel:hover {
+            background-color: #40464b;
+            transition: background-color 0.3s ease;
+        }
+
+         /* Modal styles */
+        .modal {
+            display: none; /* Start hidden */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--card-background);
+            border: 1px solid var(--furtherance-purple);
+            color: var(--text-primary);
+            position: relative;
+            margin: 15% auto;
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .close {
+            position: absolute;
+            right: 1rem;
+            top: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .key-display {
+            background: var(--background);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--furtherance-purple);
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        /* Confirmation dialog styles */
+        .confirmation-dialog {
+            display: none; /* Start hidden */
+            margin-top: 1.5rem;
+        }
+
+        #confirmationInput {
+            width: 100%;
+            background: var(--input-background);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            font-size: 1rem;
+        }
+
+        #confirmationInput:focus {
+            outline: none;
+            border-color: var(--furtherance-purple);
+        }
+
+        .confirmation-dialog .button {
+            margin-right: 0.5rem;
+        }
+
+        .error, .success {
+            background-color: var(--message-background);
+            border: 1px solid var(--message-border);
+            color: var(--message-text);
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .error::before, .success::before {
+            content: "";
+            width: 20px;
+            height: 20px;
+            border: 1.5px solid var(--message-icon-color);
+            border-radius: 50%;
+            flex-shrink: 0;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: 12px;
+        }
+
+        .error::before {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23B179F1' stroke-width='2'%3E%3Cpath d='M18 6L6 18M6 6l12 12'/%3E%3C/svg%3E");
+        }
+
+        .success::before {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23B179F1' stroke-width='2'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
+        }
+    </style>
+
+    <nav class="nav">
+        <div class="nav-links">
+            <a href="/account" class="nav-link">Account</a>
+            <a href="/encryption" class="nav-link active">Encryption</a>
+            {{#if official}}
+            <a href="/customer-portal" class="nav-link">Billing</a>
+            {{/if}}
+            <form action="/logout" method="POST" style="margin: 0">
+                <button type="submit" class="logout-link">Log out</button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="content-wrapper">
+        <div class="card">
+            <h2>Encryption Key Setup</h2>
+
+            {{#if error_msg}}
+            <div class="error">
+                <span>{{error_msg}}</span>
+            </div>
+            {{/if}}
+
+            {{#if success_msg}}
+            <div class="success">
+                <span>{{success_msg}}</span>
+            </div>
+            {{/if}}
+
+            <div class="warning">
+                <strong>Important:</strong>
+                <ul>
+                    <li>Once generated, the key will only be shown once - <strong>you must save it
+                        immediately</strong>.</li>
+                    <li><strong>Store it somewhere safe</strong> - if you lose it, you won't be able to
+                        access your encrypted data.</li>
+                    <li>Your encryption key is used to protect your data.</li>
+                    <li>This key is different from your password and is used to log into the Furtherance client.</li>
+                </ul>
+            </div>
+
+            {{#if has_key}}
+                <div class="key-status">
+                    <p><strong>An encryption key is currently set up!</strong></p>
+                    <p class="key-details">This key cannot be viewed after initial generation.
+                    If you need to set up another device, you'll need to use the key you saved.
+                    If you've lost your key, you'll need to generate a new one.</p>
+                </div>
+            {{/if}}
+
+            <div class="button-group">
+                <button type="button" class="button {{#if has_key}}button-warning{{/if}}" onclick="handleGenerateClick()">
+                    Generate {{#if has_key}}New{{/if}} Key
+                </button>
+            </div>
         </div>
 
-        {{#if has_key}}
-            <div class="key-status">
-                <p>An encryption key is currently set up</p>
-                <p class="key-details">This key cannot be viewed after initial generation.
-                If you need to set up another device, you'll need to use the key you saved.
-                If you've lost your key, you'll need to generate a new one.</p>
+        <div id="keyModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h3>Your Encryption Key</h3>
+                <div class="warning">
+                    <strong>WARNING: Save this key now!</strong>
+                    <ul>
+                        <li>This is the only time you will see this key.</li>
+                        <li>Store it in a secure password manager or other safe location.</li>
+                        <li>Without this key, your data cannot be recovered.</li>
+                    </ul>
+                </div>
+                <div class="key-display" id="modalKeyDisplay"></div>
+                <button onclick="closeModal()" class="button">I Have Saved My Key</button>
             </div>
-        {{/if}}
-
-        <div class="button-group">
-            <button type="button" class="button {{#if has_key}}button-warning{{/if}}" onclick="handleGenerateClick()">
-                Generate
-                {{#if has_key}}New{{/if}}
-                Key
-            </button>
         </div>
 
         <div class="confirmation-dialog" id="confirmationDialog">
@@ -53,151 +387,10 @@
                 <button onclick="confirmGenerate()" class="button button-warning">Confirm</button>
                 <button
                     onclick="cancelGenerate()"
-                    class="button"
-                    style="background-color: #6c757d;"
+                    class="button button-cancel"
                 >Cancel</button>
             </div>
         </div>
-
-        <div id="keyModal" class="modal">
-            <div class="modal-content">
-                <span class="close" onclick="closeModal()">&times;</span>
-                <h3>Your Encryption Key</h3>
-                <div class="warning">
-                    <strong>WARNING: Save this key now!</strong>
-                    <ul>
-                        <li>This is the only time you will see this key.</li>
-                        <li>Store it in a secure password manager or other safe
-                            location.</li>
-                        <li>Without this key, your data cannot be recovered.</li>
-                    </ul>
-                </div>
-                <div class="key-display" id="modalKeyDisplay"></div>
-                <button onclick="closeModal()" class="button">I Have Saved My Key</button>
-            </div>
-        </div>
-
-        <style>
-            .modal {
-                display: none;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                z-index: 1000;
-            }
-
-            .modal-content {
-                position: relative;
-                background-color: white;
-                margin: 15% auto;
-                padding: 20px;
-                border-radius: 5px;
-                max-width: 500px;
-                width: 90%;
-            }
-
-            .confirmation-dialog {
-                display: none;
-                margin-top: 20px;
-            }
-
-            #confirmationInput {
-                width: 100%;
-                padding: 0.75rem;
-                font-size: 1rem;
-                border: 1px solid #dee2e6;
-                border-radius: 5px;
-                margin: 10px 0;
-            }
-
-            #confirmationInput:focus {
-                outline: none;
-                border-color: #B179F1;
-                box-shadow: 0 0 0 2px rgba(177, 121, 241, 0.1);
-            }
-
-            .confirmation-dialog .button {
-                margin-right: 10px;
-            }
-
-            .confirmation-dialog .warning button {
-                margin-top: 10px;
-            }
-
-            .key-display {
-                background: #f8f9fa;
-                padding: 15px;
-                border-radius: 5px;
-                font-family: monospace;
-                margin: 15px 0;
-                word-break: break-all;
-                font-weight: bold;
-            }
-
-            .key-status {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                padding: 15px;
-                border-radius: 5px;
-                margin: 20px 0;
-            }
-
-            .key-status p {
-                margin: 0;
-            }
-
-            .key-details {
-                font-size: 0.9rem;
-                margin-top: 8px !important;
-                color: #6c757d;
-            }
-
-            .close {
-                position: absolute;
-                right: 10px;
-                top: 5px;
-                font-size: 24px;
-                cursor: pointer;
-            }
-
-            .button-warning {
-                background-color: #dc3545;
-            }
-
-            .button-warning:hover {
-                background-color: #c82333;
-            }
-
-            .warning {
-                background-color: #fff3cd;
-                border: 1px solid #ffeeba;
-                padding: 15px;
-                border-radius: 5px;
-                margin: 20px 0;
-                list-style-position: inside;
-            }
-
-            .error {
-                background-color: #f8d7da;
-                border: 1px solid #f5c6cb;
-                padding: 15px;
-                border-radius: 5px;
-                margin: 20px 0;
-                color: #721c24;
-            }
-
-            .success {
-                background-color: #d4edda;
-                border: 1px solid #c3e6cb;
-                padding: 15px;
-                border-radius: 5px;
-                margin: 20px 0;
-                color: #155724;
-            }
-        </style>
 
         <script>
             function handleGenerateClick() {
@@ -240,29 +433,16 @@
 
             function confirmGenerate() {
                 const confirmationInput = document.getElementById('confirmationInput');
-                const errorMessage = document.getElementById('confirmationError');
                 if (confirmationInput.value === 'generate') {
                     generateKey('generate');
-                    if (errorMessage) errorMessage.style.display = 'none';
                 } else {
-                    if (!errorMessage) {
-                        const error = document.createElement('div');
-                        error.id = 'confirmationError';
-                        error.style.color = '#dc3545';
-                        error.style.marginTop = '5px';
-                        error.textContent = 'Type "generate" (without the quotation marks) to confirm';
-                        confirmationInput.parentNode.insertBefore(error, confirmationInput.nextSibling);
-                    } else {
-                        errorMessage.style.display = 'block';
-                    }
+                    alert('Please type "generate" to confirm');
                 }
             }
 
             function cancelGenerate() {
                 document.getElementById('confirmationDialog').style.display = 'none';
                 document.getElementById('confirmationInput').value = '';
-                const errorMessage = document.getElementById('confirmationError');
-                if (errorMessage) errorMessage.style.display = 'none';
             }
 
             function closeModal() {

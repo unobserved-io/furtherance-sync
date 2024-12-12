@@ -1,18 +1,286 @@
 {{#> base}}
     {{#*inline "content"}}
-        <h2>Account Settings</h2>
+    <style>
+        :root {
+            --furtherance-purple: #B179F1;
+            --furtherance-purple-dark: #9b63e4;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --background: #121212;
+            --card-background: rgba(255, 255, 255, 0.05);
+            --message-background: rgba(177, 121, 241, 0.05);
+            --message-border: rgba(177, 121, 241, 0.2);
+            --message-text: var(--text-primary);
+            --message-icon-color: var(--furtherance-purple);
+            --input-background: rgba(255, 255, 255, 0.1);
+        }
 
+        body {
+            background: var(--background);
+            color: var(--text-primary);
+            position: relative;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at top right, var(--furtherance-purple) 0%, transparent 70%);
+            opacity: 0.2;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .nav {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem 0;
+            z-index: 10;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 3rem;
+            align-items: center;
+            height: fit-content;
+        }
+
+        .nav-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+            display: inline-block;
+            align-items: center;
+        }
+
+        .nav-link:hover {
+            color: var(--furtherance-purple);
+        }
+
+        .nav-link.active {
+            position: relative;
+        }
+
+        .nav-link.active::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -4px;
+            height: 2px;
+            background: var(--furtherance-purple);
+            border-radius: 1px;
+        }
+
+        .logout-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+            display: inline-block;
+            align-items: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .logout-link:hover {
+            color: var(--furtherance-purple);
+        }
+
+        .content-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 80px 2rem 2rem 2rem;
+            min-height: calc(100vh - 80px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .card {
+            background: var(--card-background);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--furtherance-purple);
+            margin: 1rem 0;
+        }
+
+        .card h2 {
+            margin: 0 0 1.5rem 0;
+            color: var(--furtherance-purple);
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            background: var(--input-background);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--furtherance-purple);
+        }
+
+        .button {
+            background: var(--furtherance-purple);
+            color: var(--text-primary);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .button:hover {
+            background: var(--furtherance-purple-dark);
+        }
+
+        .error, .success {
+            background-color: var(--message-background);
+            border: 1px solid var(--message-border);
+            color: var(--message-text);
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .error::before, .success::before {
+            content: "";
+            width: 20px;
+            height: 20px;
+            border: 1.5px solid var(--message-icon-color);
+            border-radius: 50%;
+            flex-shrink: 0;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: 12px;
+        }
+
+        .error::before {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23B179F1' stroke-width='2'%3E%3Cpath d='M18 6L6 18M6 6l12 12'/%3E%3C/svg%3E");
+        }
+
+        .success::before {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23B179F1' stroke-width='2'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
+        }
+
+        .password-requirements {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            display: none;
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.25rem 0;
+        }
+
+        .requirement-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 12px;
+            border: 1.5px solid var(--furtherance-purple);
+        }
+
+        .requirement-met {
+            color: var(--furtherance-purple);
+        }
+
+        .requirement-unmet {
+            color: var(--text-secondary);
+        }
+    </style>
+
+    <nav class="nav">
+        <div class="nav-links">
+            <a href="/account" class="nav-link active">Account</a>
+            <a href="/encryption" class="nav-link">Encryption</a>
+            {{#if official}}
+            <a href="/customer-portal" class="nav-link">Billing</a>
+            {{/if}}
+            <form action="/logout" method="POST" style="margin: 0">
+                <button type="submit" class="logout-link">Log out</button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="content-wrapper">
         {{#if error_msg}}
-        <div class="error">{{error_msg}}</div>
+        <div class="error">
+            <span>{{error_msg}}</span>
+        </div>
         {{/if}}
 
         {{#if success_msg}}
-        <div class="success">{{success_msg}}</div>
+        <div class="success">
+            <span>{{success_msg}}</span>
+        </div>
         {{/if}}
 
-        <div class="settings-section">
-            <h3>Change Password</h3>
-            <form method="POST" action="/account/change-password" class="settings-form">
+        <div class="card">
+            <h2>Change Email</h2>
+            <form action="/account/change-email" method="POST">
+                <div class="form-group">
+                    <label for="current_email">Current Email</label>
+                    <input type="email" id="current_email" value="{{user_email}}" disabled>
+                </div>
+
+                <div class="form-group">
+                    <label for="new_email">New Email</label>
+                    <input type="email" id="new_email" name="new_email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Current Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+
+                <button type="submit" class="button">
+                    {{#if official}}Request Email Change{{else}}Change Email{{/if}}
+                </button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Change Password</h2>
+            <form action="/account/change-password" method="POST">
                 <div class="form-group">
                     <label for="current_password">Current Password</label>
                     <input type="password" id="current_password" name="current_password" required>
@@ -55,213 +323,54 @@
                 <button type="submit" class="button">Change Password</button>
             </form>
         </div>
+    </div>
 
-        <div class="settings-section">
-            <h3>Change Email</h3>
-            {{#if official}}
-            <form method="POST" action="/account/change-email" class="settings-form">
-                <div class="form-group">
-                    <label for="new_email">New Email</label>
-                    <input type="email" id="new_email" name="new_email" required>
-                </div>
+    <script>
+        {{#if official}}
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.getElementById('new_password');
+            const requirementsDiv = document.querySelector('.password-requirements');
+            const requirements = {
+                length: { regex: /.{8,}/, element: document.getElementById('req-length') },
+                uppercase: { regex: /[A-Z]/, element: document.getElementById('req-uppercase') },
+                lowercase: { regex: /[a-z]/, element: document.getElementById('req-lowercase') },
+                number: { regex: /[0-9]/, element: document.getElementById('req-number') },
+                special: { regex: /[!@#$%^&*(),.?":{}|<>]/, element: document.getElementById('req-special') }
+            };
 
-                <div class="form-group">
-                    <label for="password">Current Password</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
+            function updateRequirement(element, isMet) {
+                const icon = element.querySelector('.requirement-icon');
+                const text = element.querySelector('.requirement-text');
 
-                <button type="submit" class="button">Request Email Change</button>
-            </form>
-            {{else}}
-            <form method="POST" action="/account/change-email" class="settings-form">
-                <div class="form-group">
-                    <label for="new_email">New Email</label>
-                    <input type="email" id="new_email" name="new_email" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="password">Current Password</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-
-                <button type="submit" class="button">Change Email</button>
-            </form>
-            {{/if}}
-        </div>
-
-        <style>
-            .settings-section {
-                background: white;
-                padding: 2rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                margin-bottom: 2rem;
-            }
-
-            .settings-section h3 {
-                margin-top: 0;
-                color: #333;
-                padding-bottom: 1rem;
-            }
-
-            .settings-form {
-                max-width: 400px;
-            }
-
-            .form-group {
-                margin-bottom: 1rem;
-            }
-
-            .form-group label {
-                display: block;
-                margin-bottom: 0.5rem;
-                color: #333;
-            }
-
-            .form-group input {
-                width: 100%;
-                padding: 0.75rem;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                font-size: 1rem;
-            }
-
-            .button {
-                margin-top: 1rem;
-            }
-
-            .error {
-                background-color: #f8d7da;
-                border: 1px solid #f5c6cb;
-                color: #721c24;
-                padding: 0.75rem;
-                border-radius: 4px;
-                margin-bottom: 1rem;
-            }
-
-            .success {
-                background-color: #d4edda;
-                border: 1px solid #c3e6cb;
-                color: #155724;
-                padding: 0.75rem;
-                border-radius: 4px;
-                margin-bottom: 1rem;
-            }
-
-            .password-requirements {
-                margin-top: 0.5rem;
-                font-size: 0.9rem;
-                padding-left: 1rem;
-                display: none;
-            }
-
-            .requirement {
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-                margin: 0.25rem 0;
-            }
-
-            .requirement-icon {
-                width: 16px;
-                height: 16px;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 50%;
-                font-size: 12px;
-                font-weight: bold;
-            }
-
-            .requirement-met {
-                color: #16a34a;
-            }
-
-            .requirement-unmet {
-                color: #dc2626;
-            }
-
-            .requirement-icon.requirement-met {
-                background-color: #dcfce7;
-            }
-
-            .requirement-icon.requirement-unmet {
-                background-color: #fee2e2;
-            }
-        </style>
-
-        <script>
-            {{#if official}}
-            document.addEventListener('DOMContentLoaded', function() {
-                const passwordInput = document.getElementById('new_password');
-                const requirementsDiv = document.querySelector('.password-requirements');
-                const requirements = {
-                    length: { regex: /.{8,}/, element: document.getElementById('req-length') },
-                    uppercase: { regex: /[A-Z]/, element: document.getElementById('req-uppercase') },
-                    lowercase: { regex: /[a-z]/, element: document.getElementById('req-lowercase') },
-                    number: { regex: /[0-9]/, element: document.getElementById('req-number') },
-                    special: { regex: /[!@#$%^&*(),.?":{}|<>]/, element: document.getElementById('req-special') }
-                };
-
-                function updateRequirement(element, isMet) {
-                    const icon = element.querySelector('.requirement-icon');
-                    const text = element.querySelector('.requirement-text');
-
-                    if (isMet) {
-                        icon.textContent = '✓';
-                        icon.classList.remove('requirement-unmet');
-                        icon.classList.add('requirement-met');
-                        text.classList.remove('requirement-unmet');
-                        text.classList.add('requirement-met');
-                    } else {
-                        icon.textContent = '×';
-                        icon.classList.remove('requirement-met');
-                        icon.classList.add('requirement-unmet');
-                        text.classList.remove('requirement-met');
-                        text.classList.add('requirement-unmet');
-                    }
+                if (isMet) {
+                    icon.textContent = '✓';
+                    icon.classList.remove('requirement-unmet');
+                    icon.classList.add('requirement-met');
+                    text.classList.remove('requirement-unmet');
+                    text.classList.add('requirement-met');
+                } else {
+                    icon.textContent = '×';
+                    icon.classList.remove('requirement-met');
+                    icon.classList.add('requirement-unmet');
+                    text.classList.remove('requirement-met');
+                    text.classList.add('requirement-unmet');
                 }
+            }
 
-                function checkPassword(password) {
-                    requirementsDiv.style.display = password.length > 0 ? 'block' : 'none';
+            function checkPassword(password) {
+                requirementsDiv.style.display = password.length > 0 ? 'block' : 'none';
 
-                    for (const [key, requirement] of Object.entries(requirements)) {
-                        const isMet = requirement.regex.test(password);
-                        updateRequirement(requirement.element, isMet);
-                    }
+                for (const [key, requirement] of Object.entries(requirements)) {
+                    const isMet = requirement.regex.test(password);
+                    updateRequirement(requirement.element, isMet);
                 }
+            }
 
-                passwordInput.addEventListener('input', (e) => {
-                    checkPassword(e.target.value);
-                });
+            passwordInput.addEventListener('input', (e) => {
+                checkPassword(e.target.value);
             });
-            {{/if}}
-
-            document.querySelector('form[action="/account/change-password"]')
-                .addEventListener('submit', function(e) {
-                    const newPassword = document.getElementById('new_password').value;
-                    const confirmPassword = document.getElementById('confirm_password').value;
-
-                    {{#if official}}
-                    // Check password requirements
-                    const hasNumber = /[0-9]/.test(newPassword);
-                    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-                    const hasUppercase = /[A-Z]/.test(newPassword);
-                    const hasLowercase = /[a-z]/.test(newPassword);
-                    const isLongEnough = newPassword.length >= 8;
-
-                    if (!(hasNumber && hasSpecial && hasUppercase && hasLowercase && isLongEnough)) {
-                        e.preventDefault();
-                        alert('Password must meet all requirements');
-                        return;
-                    }
-                    {{/if}}
-
-                    if (newPassword !== confirmPassword) {
-                        e.preventDefault();
-                        alert('New passwords do not match');
-                    }
-                });
-        </script>
+        });
+        {{/if}}
+    </script>
     {{/inline}}
 {{/base}}

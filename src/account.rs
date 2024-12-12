@@ -6,13 +6,12 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use crate::{database, middleware::AuthUser, AppState};
+use crate::{database, middleware::AuthUser, register, AppState};
 
 #[derive(Deserialize)]
 pub struct ChangePasswordForm {
     current_password: String,
     new_password: String,
-    #[allow(dead_code)]
     confirm_password: String,
 }
 
@@ -28,16 +27,42 @@ struct AccountPageData {
     active_page: String,
     error_msg: Option<String>,
     success_msg: Option<String>,
+    user_email: String,
     #[cfg(feature = "official")]
     official: bool,
 }
 
-pub async fn show_account(State(state): State<AppState>, AuthUser(_): AuthUser) -> Response {
+pub async fn show_account(State(state): State<AppState>, AuthUser(user_id): AuthUser) -> Response {
+    let user_email = match database::get_user_email(&state.db, user_id).await {
+        Ok(Some(email)) => email,
+        Ok(None) => {
+            error!("No user found for id: {}", user_id);
+            return render_account_page(
+                &state,
+                user_id,
+                Some("Unable to load account information"),
+                None,
+            )
+            .await;
+        }
+        Err(e) => {
+            error!("Database error fetching user email: {}", e);
+            return render_account_page(
+                &state,
+                user_id,
+                Some("Unable to load account information"),
+                None,
+            )
+            .await;
+        }
+    };
+
     let data = AccountPageData {
         title: "Account Settings".to_string(),
         active_page: "account".to_string(),
         error_msg: None,
         success_msg: None,
+        user_email,
         #[cfg(feature = "official")]
         official: true,
     };
@@ -56,14 +81,23 @@ pub async fn handle_change_password(
     AuthUser(user_id): AuthUser,
     Form(form): Form<ChangePasswordForm>,
 ) -> Response {
+    // Check if passwords match
+    if form.new_password != form.confirm_password {
+        return render_account_page(&state, user_id, Some("New passwords do not match"), None)
+            .await;
+    }
+
     let verified =
         match database::verify_current_password(&state.db, user_id, &form.current_password).await {
             Ok(result) => result,
-            Err(_) => return render_account_page(&state, Some("Server error"), None),
+            Err(_) => {
+                return render_account_page(&state, user_id, Some("Server error"), None).await
+            }
         };
 
     if !verified {
-        return render_account_page(&state, Some("Current password is incorrect"), None);
+        return render_account_page(&state, user_id, Some("Current password is incorrect"), None)
+            .await;
     }
 
     #[cfg(feature = "official")]
@@ -71,18 +105,20 @@ pub async fn handle_change_password(
         if !crate::register::is_password_valid(&form.new_password) {
             return render_account_page(
                 &state,
+                user_id,
                 Some("New password does not meet security requirements"),
                 None,
-            );
+            )
+            .await;
         }
     }
 
     // Update password
     if let Err(_) = database::update_password(&state.db, user_id, &form.new_password).await {
-        return render_account_page(&state, Some("Failed to update password"), None);
+        return render_account_page(&state, user_id, Some("Failed to update password"), None).await;
     }
 
-    render_account_page(&state, None, Some("Password successfully updated"))
+    render_account_page(&state, user_id, None, Some("Password successfully updated")).await
 }
 
 pub async fn handle_change_email(
@@ -90,19 +126,31 @@ pub async fn handle_change_email(
     AuthUser(user_id): AuthUser,
     Form(form): Form<ChangeEmailForm>,
 ) -> Response {
+    if !register::is_valid_email(&form.new_email) {
+        return render_account_page(
+            &state,
+            user_id,
+            Some("Please enter a valid email address"),
+            None,
+        )
+        .await;
+    }
+
     let verified = match database::verify_current_password(&state.db, user_id, &form.password).await
     {
         Ok(result) => result,
-        Err(_) => return render_account_page(&state, Some("Server error"), None),
+        Err(_) => return render_account_page(&state, user_id, Some("Server error"), None).await,
     };
 
     if !verified {
-        return render_account_page(&state, Some("Current password is incorrect"), None);
+        return render_account_page(&state, user_id, Some("Current password is incorrect"), None)
+            .await;
     }
 
     // Check if email is already registered
     if let Ok(Some(_)) = database::get_user_id_by_email(&state.db, &form.new_email).await {
-        return render_account_page(&state, Some("Email is already registered"), None);
+        return render_account_page(&state, user_id, Some("Email is already registered"), None)
+            .await;
     }
 
     #[cfg(feature = "official")]
@@ -114,7 +162,13 @@ pub async fn handle_change_email(
         if let Err(_) =
             database::store_email_change_token(&state.db, user_id, &form.new_email, &token).await
         {
-            return render_account_page(&state, Some("Failed to initiate email change"), None);
+            return render_account_page(
+                &state,
+                user_id,
+                Some("Failed to initiate email change"),
+                None,
+            )
+            .await;
         }
 
         // Send verification email
@@ -125,37 +179,61 @@ pub async fn handle_change_email(
         )
         .await
         {
-            return render_account_page(&state, Some("Failed to send verification email"), None);
+            return render_account_page(
+                &state,
+                user_id,
+                Some("Failed to send verification email"),
+                None,
+            )
+            .await;
         }
 
         render_account_page(
             &state,
+            user_id,
             None,
             Some("Please check your new email address for verification instructions"),
         )
+        .await
     }
 
     #[cfg(feature = "self-hosted")]
     {
         // Direct email update for self-hosted version
         if let Err(_) = database::update_email(&state.db, user_id, &form.new_email).await {
-            return render_account_page(&state, Some("Failed to update email"), None);
+            return render_account_page(&state, user_id, Some("Failed to update email"), None)
+                .await;
         }
 
-        render_account_page(&state, None, Some("Email successfully updated"))
+        render_account_page(&state, user_id, None, Some("Email successfully updated")).await
     }
 }
 
-fn render_account_page(
+async fn render_account_page(
     state: &AppState,
+    user_id: i32,
     error_msg: Option<&str>,
     success_msg: Option<&str>,
 ) -> Response {
+    // Now we can just await directly
+    let user_email = match database::get_user_email(&state.db, user_id).await {
+        Ok(Some(email)) => email,
+        Ok(None) => {
+            error!("No user found for id: {}", user_id);
+            String::from("Error loading email")
+        }
+        Err(e) => {
+            error!("Database error fetching user email: {}", e);
+            String::from("Error loading email")
+        }
+    };
+
     let data = AccountPageData {
         title: "Account Settings".to_string(),
         active_page: "account".to_string(),
         error_msg: error_msg.map(String::from),
         success_msg: success_msg.map(String::from),
+        user_email,
         #[cfg(feature = "official")]
         official: true,
     };

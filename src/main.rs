@@ -91,9 +91,6 @@ async fn main() -> std::io::Result<()> {
         .map_err(to_io_error)?;
     hb.register_template_file("account", "templates/pages/account.hbs")
         .map_err(to_io_error)?;
-    // Register partials
-    hb.register_template_file("nav", "templates/partials/nav.hbs")
-        .map_err(to_io_error)?;
     // Register error template
     hb.register_template_file("error", "templates/error.hbs")
         .map_err(to_io_error)?;
