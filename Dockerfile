@@ -10,7 +10,8 @@ RUN apt-get update && \
 
 # Build with self-hosted feature only
 RUN cargo clean
-RUN SQLX_OFFLINE=true cargo build --release --no-default-features --features self-hosted
+ENV SQLX_OFFLINE=true
+RUN cargo build --release --no-default-features --features self-hosted
 
 # Runtime stage
 FROM debian:bookworm-slim
