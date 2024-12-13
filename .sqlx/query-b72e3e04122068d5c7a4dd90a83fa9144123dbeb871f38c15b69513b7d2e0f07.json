@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM password_reset_tokens\n        WHERE (expires_at < CURRENT_TIMESTAMP - INTERVAL '1 hour' AND used = false)\n        OR (created_at < CURRENT_TIMESTAMP - INTERVAL '30 days' AND used = true)\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b72e3e04122068d5c7a4dd90a83fa9144123dbeb871f38c15b69513b7d2e0f07"
+}

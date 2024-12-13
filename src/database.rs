@@ -1104,7 +1104,7 @@ pub async fn verify_current_password(
     }
 }
 
-#[cfg(feature = "self-hosted")]
+#[allow(dead_code)]
 pub async fn update_email(pool: &PgPool, user_id: i32, new_email: &str) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
