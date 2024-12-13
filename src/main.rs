@@ -57,7 +57,8 @@ use official::email::EmailConfig;
 async fn main() -> std::io::Result<()> {
     init_logger();
 
-    info!("Starting Furtherance Sync v0.3.0");
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+    info!("Starting Furtherance Sync v{VERSION}");
 
     let pool = match database::db_init().await {
         Ok(pool) => Arc::new(pool),
