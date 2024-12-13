@@ -1,3 +1,9 @@
+// Furtherance Sync
+// Copyright (C) 2024  Ricky Kresslein <rk@unobserved.io>
+//
+// This code is licensed under the Elastic License 2.0.
+// For details: https://www.elastic.co/licensing/elastic-license
+
 use axum::{
     extract::State,
     response::{Html, IntoResponse, Response},

@@ -1,0 +1,193 @@
+{{#> base}}
+    {{#*inline "content"}}
+    <style>
+        :root {
+            --furtherance-purple: #B179F1;
+            --furtherance-purple-dark: #9b63e4;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --background: #121212;
+            --card-background: rgba(255, 255, 255, 0.05);
+            --input-background: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            background: var(--background);
+            color: var(--text-primary);
+            position: relative;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at top right, var(--furtherance-purple) 0%, transparent 70%);
+            opacity: 0.2;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .nav {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem 0;
+            z-index: 10;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 3rem;
+            align-items: center;
+            height: fit-content;
+        }
+
+        .nav-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+            display: inline-block;
+            align-items: center;
+        }
+
+        .nav-link:hover {
+            color: var(--furtherance-purple);
+        }
+
+        .nav-link.active {
+            position: relative;
+        }
+
+        .nav-link.active::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -4px;
+            height: 2px;
+            background: var(--furtherance-purple);
+            border-radius: 1px;
+        }
+
+        .logout-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+            display: inline-block;
+            align-items: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .logout-link:hover {
+            color: var(--furtherance-purple);
+        }
+
+        .content-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 80px 2rem 2rem 2rem;
+            min-height: calc(100vh - 80px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .card {
+            background: var(--card-background);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--furtherance-purple);
+            margin: 2rem 0;
+        }
+
+        .card h2 {
+            margin: 0 0 1.5rem 0;
+            color: var(--furtherance-purple);
+            font-size: 1.5rem;
+        }
+
+        .support-section {
+            margin-bottom: 2rem;
+        }
+
+        .support-section h3 {
+            color: var(--furtherance-purple);
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .support-section p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+
+        .support-link {
+            color: var(--furtherance-purple);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .support-link:hover {
+            color: var(--furtherance-purple-dark);
+            text-decoration: underline;
+        }
+
+        .qr-container {
+            display: flex;
+            justify-content: center;
+            margin: 2rem 0;
+        }
+
+        .qr-code {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            max-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-links">
+            <a href="/account" class="nav-link">Account</a>
+            <a href="/encryption" class="nav-link">Encryption</a>
+            <a href="/customer-portal" class="nav-link">Billing</a>
+            <a href="/support" class="nav-link active">Support</a>
+            <form action="/logout" method="POST" style="margin: 0">
+                <button type="submit" class="logout-link">Log out</button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="content-wrapper">
+        <div class="card">
+            <div class="support-section">
+                <h2>Email Support</h2>
+                <p>For general inquiries and support, you can reach us at
+                <a href="mailto:{{support_email}}" class="support-link">{{support_email}}</a></p>
+            </div>
+
+            <div class="support-section">
+                <h2>SimpleX Chat</h2>
+                <p>For real-time support and quick responses, you can text me on SimpleX. Scan this QR code or <a href="{{simplex_link}}" class="support-link">click here</a> to start a conversation.</p>
+
+                <div class="qr-container">
+                    <img src="{{simplex_qr_path}}" alt="SimpleX QR Code" class="qr-code" />
+                </div>
+            </div>
+        </div>
+    </div>
+    {{/inline}}
+{{/base}}

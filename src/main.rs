@@ -21,6 +21,7 @@ mod official {
     pub mod billing;
     pub mod email;
     pub mod password_reset;
+    pub mod support;
     pub mod tasks;
 }
 
@@ -78,19 +79,21 @@ async fn main() -> std::io::Result<()> {
     // Initialize Handlebars
     let mut hb = Handlebars::new();
     // Register templates
+    hb.register_template_file("account", "templates/pages/account.hbs")
+        .map_err(to_io_error)?;
     hb.register_template_file("base", "templates/layouts/base.hbs")
         .map_err(to_io_error)?;
     hb.register_template_file("encryption", "templates/pages/encryption.hbs")
+        .map_err(to_io_error)?;
+    hb.register_template_file("forgot-password", "templates/pages/forgot-password.hbs")
         .map_err(to_io_error)?;
     hb.register_template_file("login", "templates/pages/login.hbs")
         .map_err(to_io_error)?;
     hb.register_template_file("register", "templates/pages/register.hbs")
         .map_err(to_io_error)?;
-    hb.register_template_file("forgot-password", "templates/pages/forgot-password.hbs")
-        .map_err(to_io_error)?;
     hb.register_template_file("reset-password", "templates/pages/reset-password.hbs")
         .map_err(to_io_error)?;
-    hb.register_template_file("account", "templates/pages/account.hbs")
+    hb.register_template_file("support", "templates/pages/support.hbs")
         .map_err(to_io_error)?;
     // Register error template
     hb.register_template_file("error", "templates/error.hbs")

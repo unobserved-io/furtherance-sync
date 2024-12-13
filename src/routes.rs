@@ -27,7 +27,7 @@ use crate::{
 };
 
 #[cfg(feature = "official")]
-use crate::official::{billing, password_reset};
+use crate::official::{billing, password_reset, support};
 
 pub fn configure_routes(state: AppState) -> Router {
     let governor_conf = Arc::new(
@@ -55,15 +55,15 @@ pub fn configure_routes(state: AppState) -> Router {
 
     // Protected web routes - requires session cookie
     let web_routes = Router::new()
-        .route("/encryption", get(encryption::show_encryption))
-        .route("/encryption/generate", post(encryption::generate_key))
-        .route("/logout", post(logout::handle_logout))
         .route("/account", get(account::show_account))
         .route(
             "/account/change-password",
             post(account::handle_change_password),
         )
         .route("/account/change-email", post(account::handle_change_email))
+        .route("/encryption", get(encryption::show_encryption))
+        .route("/encryption/generate", post(encryption::generate_key))
+        .route("/logout", post(logout::handle_logout))
         .layer(from_fn_with_state(
             state.clone(),
             |state: State<AppState>, jar: CookieJar, req: Request<Body>, next: Next| async move {
@@ -100,6 +100,7 @@ pub fn configure_routes(state: AppState) -> Router {
             "/customer-portal",
             get(billing::redirect_to_customer_portal),
         )
+        .route("/support", get(support::show_support))
         .layer(from_fn_with_state(
             state.clone(),
             |state: State<AppState>, jar: CookieJar, req: Request<Body>, next: Next| async move {
