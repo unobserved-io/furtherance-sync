@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 727 727" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;">
+    <g transform="matrix(1,0,0,1,-642.271,-467.206)">
+        <g transform="matrix(6.12323e-17,1,-1,6.12323e-17,1836.48,-175.065)">
+            <path d="M1369.27,627.146L1369.27,1034.27C1369.27,1122.54 1297.6,1194.21 1209.33,1194.21L802.211,1194.21C713.938,1194.21 642.271,1122.54 642.271,1034.27L642.271,627.146C642.271,538.873 713.938,467.206 802.211,467.206L1209.33,467.206C1297.6,467.206 1369.27,538.873 1369.27,627.146Z" style="fill:url(#_Linear1);"/>
+        </g>
+        <g id="Watch-Hand-White" transform="matrix(0.88194,0,0,0.88194,554.359,388.113)">
+            <g id="g2">
+                <path id="Path" d="M572.292,472.058C594.487,505.367 585.478,550.362 552.169,572.557C518.86,594.752 473.866,585.742 451.671,552.434C429.476,519.125 438.485,474.13 471.794,451.935C505.102,429.74 550.097,438.75 572.292,472.058Z" style="fill:white;stroke:white;stroke-width:1px;"/>
+            </g>
+            <g id="g3">
+                <path id="path1" d="M627.472,436.289L846,283.999" style="fill:none;fill-rule:nonzero;stroke:white;stroke-width:68px;"/>
+            </g>
+        </g>
+        <g id="Ticks" transform="matrix(0.88194,0,0,0.88194,554.359,388.113)">
+            <path id="Line" d="M512,117L512,178" style="fill:none;fill-rule:nonzero;stroke:white;stroke-width:14px;"/>
+            <path id="Line-copy-3" d="M512,887L512,826" style="fill:none;fill-rule:nonzero;stroke:white;stroke-width:14px;"/>
+            <path id="Line-copy" d="M897,512L836,512" style="fill:none;fill-rule:nonzero;stroke:white;stroke-width:14px;"/>
+            <path id="Line-copy-2" d="M188,512L127,512" style="fill:none;fill-rule:nonzero;stroke:white;stroke-width:14px;"/>
+        </g>
+    </g>
+    <defs>
+        <linearGradient id="_Linear1" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(727,0,0,727,642.271,830.706)"><stop offset="0" style="stop-color:rgb(177,121,241);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(133,76,199);stop-opacity:1"/></linearGradient>
+    </defs>
+</svg>
