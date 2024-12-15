@@ -26,8 +26,9 @@ RUN apt-get update && \
 # Copy the built binary
 COPY --from=builder /usr/src/furtherance-sync/target/release/furtherance-sync ./
 
-# Copy required templates
+# Copy required files
 COPY --from=builder /usr/src/furtherance-sync/templates ./templates
+COPY --from=builder /usr/src/furtherance-sync/static ./static
 
 # Create a non-root user
 RUN useradd -r -s /bin/false furtherance && \
