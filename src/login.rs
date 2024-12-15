@@ -124,6 +124,9 @@ pub async fn show_login(
         Some("registration_success") => Some("Registration successful! Please log in.".to_string()),
         Some("password_reset") => Some("Password reset. Please log in.".to_string()),
         Some("logout_success") => Some("You have been logged out.".to_string()),
+        Some("subscription_success") => Some(
+            "Thank you for subscribing! Log in and generate a key to start syncing.".to_string(),
+        ),
         _ => None,
     };
 

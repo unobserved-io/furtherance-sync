@@ -151,6 +151,7 @@ pub async fn sanitize_query_params(
                 "registration_success",
                 "password_reset",
                 "logout_success",
+                "subscription_success",
             ];
             if !allowed_messages.contains(&message.as_str()) {
                 return Redirect::to("/login").into_response();
