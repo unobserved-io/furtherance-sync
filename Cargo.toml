@@ -1,6 +1,6 @@
 [package]
 name = "furtherance-sync"
-version = "0.3.5"
+version = "0.3.6"
 edition = "2021"
 license = "Elastic-2.0"
 
