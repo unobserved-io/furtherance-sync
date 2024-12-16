@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="static/furtherance.svg" width="200">
+</p>
+
 # Furtherance Sync
 
 This is the official sync server for [Furtherance](github.com/unobserved-io/Furtherance). If you would like the easiest way possible to sync your Furtherance history, you can sign up for a hosted account [here](https://furtherance.app/sync).
