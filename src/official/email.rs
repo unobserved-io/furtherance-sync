@@ -38,7 +38,6 @@ impl EmailConfig {
                 self.smtp_username.clone(),
                 self.smtp_password.clone(),
             ))
-            .pool_config(PoolConfig::new().max_size(20))
             .build()
     }
 }

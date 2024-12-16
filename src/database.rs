@@ -1157,3 +1157,21 @@ pub async fn get_user_email(pool: &PgPool, user_id: i32) -> Result<Option<String
 
     Ok(record.map(|r| r.email))
 }
+
+#[cfg(feature = "official")]
+pub async fn has_recent_reset_token(pool: &PgPool, user_id: i32) -> Result<bool, sqlx::Error> {
+    let recent_token = sqlx::query!(
+        r#"
+        SELECT created_at
+        FROM password_reset_tokens
+        WHERE user_id = $1
+        AND created_at > NOW() - INTERVAL '5 minutes'
+        AND used = false
+        "#,
+        user_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(recent_token.is_some())
+}

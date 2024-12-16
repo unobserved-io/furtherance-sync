@@ -70,7 +70,12 @@ pub async fn handle_forgot_password(
     Form(form): Form<ForgotPasswordForm>,
 ) -> Response {
     let user_id = match database::get_user_id_by_email(&state.db, &form.email).await {
-        Ok(Some(id)) => id,
+        Ok(Some(id)) => {
+            if let Ok(true) = database::has_recent_reset_token(&state.db, id).await {
+                return render_success_page(&state);
+            }
+            id
+        }
         Ok(None) => {
             // Don't reveal if email exists
             return render_success_page(&state);
