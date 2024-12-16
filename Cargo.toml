@@ -5,7 +5,7 @@ edition = "2021"
 license = "Elastic-2.0"
 
 [features]
-default = ["self-hosted"]
+default = ["official"]
 self-hosted = []
 official = ["dep:async-stripe", "dep:lettre"]
 

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use axum::{
     extract::{Query, State},
-    response::{Html, IntoResponse, Response},
+    response::{Html, IntoResponse, Redirect, Response},
 };
 use serde::{Deserialize, Serialize};
 use tracing::error;
