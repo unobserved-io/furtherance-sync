@@ -5,8 +5,8 @@
 // For details: https://www.elastic.co/licensing/elastic-license
 
 use lettre::{
-    transport::smtp::authentication::Credentials, transport::smtp::PoolConfig, AsyncSmtpTransport,
-    AsyncTransport, Message, Tokio1Executor,
+    transport::smtp::authentication::Credentials, AsyncSmtpTransport, AsyncTransport, Message,
+    Tokio1Executor,
 };
 
 pub struct EmailConfig {
