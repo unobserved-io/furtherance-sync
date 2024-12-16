@@ -167,7 +167,7 @@ pub async fn handle_reset_password(
     let user_id = match database::verify_reset_token(&state.db, &form.token).await {
         Ok(Some(id)) => id,
         Ok(None) => {
-            return render_reset_error_page(&state, "Invalid or expired reset token");
+            return Redirect::to("/login?message=invalid_reset_token").into_response();
         }
         Err(e) => {
             error!("Database error: {}", e);

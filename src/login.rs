@@ -117,6 +117,9 @@ pub async fn show_login(
         Some("session_expired") => {
             Some("Your session has expired. Please log in again.".to_string())
         }
+        Some("invalid_reset_token") => Some(
+            "Password reset link is invalid or has expired. Please request a new one.".to_string(),
+        ),
         _ => None,
     };
 
