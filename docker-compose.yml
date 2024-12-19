@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   app:
-    image: furtherance-sync:self-hosted
+    image: ghcr.io/unobserved-io/furtherance-sync:latest
     ports:
       - "8662:8662"
     environment:
