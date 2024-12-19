@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   db:
-    image: postgres:15
+    image: postgres:17
     environment:
       - POSTGRES_DB=furtherance
       - POSTGRES_USER=dbuser
