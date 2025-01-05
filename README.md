@@ -42,7 +42,6 @@ If you prefer to self-host Furtherance Sync but would still like to contribute t
 * [GitHub](https://github.com/sponsors/rickykresslein)
 * [Patreon](https://www.patreon.com/unobserved)
 * [Ko-fi](https://ko-fi.com/unobserved)
-* Lightning: unobserved [at] getalby [dot com]
 
 Thank you so much for your contribution! I truly appreciate it.
 
