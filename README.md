@@ -32,7 +32,7 @@ Docker must already be enabled on your NixOS machine (by adding `virtualisation.
 
 ## Avoid the Headache
 
-If you would like to sync your Furtherance history without the headache of hosting it yourself, you can purchase a hosted account for $5/month with a 7-day free trial.
+If you would like to sync your Furtherance history without the headache of hosting it yourself, you can purchase a hosted account for $20/year with a 7-day free trial.
 
 This is also a great way to support the free and open-source [Furtherance](github.com/unobserved-io/Furtherance) project!
 
