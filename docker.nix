@@ -4,7 +4,7 @@
 
   virtualisation.oci-containers.containers = {
     furtherance-sync = {
-      image = "furtherance-sync:self-hosted";
+      image = "ghcr.io/unobserved-io/furtherance-sync:latest";
       ports = [
         "8662:8662"
       ];
