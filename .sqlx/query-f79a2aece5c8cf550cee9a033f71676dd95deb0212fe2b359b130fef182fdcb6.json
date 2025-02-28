@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE todos\n        SET known_by_devices =\n            CASE\n                WHEN $3 = ANY(known_by_devices)\n                THEN known_by_devices\n                ELSE array_append(known_by_devices, $3)\n            END\n        WHERE user_id = $1 AND uid = ANY($2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "TextArray",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f79a2aece5c8cf550cee9a033f71676dd95deb0212fe2b359b130fef182fdcb6"
+}

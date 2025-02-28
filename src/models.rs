@@ -29,6 +29,14 @@ pub struct EncryptedShortcut {
     pub last_updated: i64,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct EncryptedTodo {
+    pub encrypted_data: String,
+    pub nonce: String,
+    pub uid: String,
+    pub last_updated: i64,
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<PgPool>,

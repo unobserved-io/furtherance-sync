@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            encrypted_data,\n            nonce,\n            uid,\n            last_updated\n        FROM todos\n        WHERE user_id = $1\n        AND (\n            NOT ($2 = ANY(known_by_devices))\n            OR\n            (last_updated > $3)\n        )\n        AND NOT is_orphaned",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "encrypted_data",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "nonce",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "uid",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "last_updated",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b86b02aa8a3ab1989957421080e746166aeb41b7343b3fa94b1031cd2180c82e"
+}

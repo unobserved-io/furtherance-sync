@@ -111,3 +111,15 @@ CREATE TABLE IF NOT EXISTS shortcuts (
     UNIQUE(user_id, uid),
     PRIMARY KEY (user_id, uid)
 );
+
+CREATE TABLE IF NOT EXISTS todos (
+    encrypted_data TEXT NOT NULL,
+    nonce TEXT NOT NULL,
+    uid TEXT NOT NULL,
+    last_updated BIGINT NOT NULL DEFAULT 0,
+    is_orphaned BOOL NOT NULL DEFAULT FALSE,
+    user_id INTEGER REFERENCES users(id),
+    known_by_devices TEXT[] DEFAULT '{}',
+    UNIQUE(user_id, uid),
+    PRIMARY KEY (user_id, uid)
+);

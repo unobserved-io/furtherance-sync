@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO todos\n            (encrypted_data, nonce, uid, last_updated, user_id, known_by_devices)\n        VALUES ($1, $2, $3, $4, $5, ARRAY[$6])\n        ON CONFLICT (user_id, uid) DO UPDATE\n        SET encrypted_data =\n            CASE\n                WHEN todos.is_orphaned OR $4 >= todos.last_updated\n                THEN $1\n                ELSE todos.encrypted_data\n            END,\n        nonce =\n            CASE\n                WHEN todos.is_orphaned OR $4 >= todos.last_updated\n                THEN $2\n                ELSE todos.nonce\n            END,\n        last_updated =\n            CASE\n                WHEN todos.is_orphaned OR $4 >= todos.last_updated\n                THEN $4\n                ELSE todos.last_updated\n            END,\n        known_by_devices =\n            CASE\n                WHEN $6 = ANY(todos.known_by_devices)\n                THEN todos.known_by_devices\n                ELSE array_append(todos.known_by_devices, $6)\n            END,\n        is_orphaned = false",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2ecab1977c23e9298f0121f8ffbb0de4ba987273ee030682b8ea582ae4925056"
+}

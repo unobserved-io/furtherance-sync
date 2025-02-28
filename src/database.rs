@@ -12,7 +12,7 @@ use tracing::error;
 
 use crate::{
     login,
-    models::{EncryptedShortcut, EncryptedTask},
+    models::{EncryptedShortcut, EncryptedTask, EncryptedTodo},
 };
 
 #[cfg(feature = "official")]
@@ -249,6 +249,23 @@ pub async fn db_init() -> Result<PgPool, Box<dyn Error>> {
     .execute(&pool)
     .await?;
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS todos (
+            encrypted_data TEXT NOT NULL,
+            nonce TEXT NOT NULL,
+            uid TEXT NOT NULL,
+            last_updated BIGINT NOT NULL DEFAULT 0,
+            is_orphaned BOOL NOT NULL DEFAULT FALSE,
+            user_id INTEGER REFERENCES users(id),
+            known_by_devices TEXT[] DEFAULT '{}',
+            UNIQUE(user_id, uid),
+            PRIMARY KEY (user_id, uid)
+        );"#,
+    )
+    .execute(&pool)
+    .await?;
+
     Ok(pool)
 }
 
@@ -372,6 +389,56 @@ pub async fn insert_shortcut(
     Ok(())
 }
 
+pub async fn insert_todo(
+    pool: &PgPool,
+    todo: &EncryptedTodo,
+    user_id: i32,
+    device_refresh_token: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        INSERT INTO todos
+            (encrypted_data, nonce, uid, last_updated, user_id, known_by_devices)
+        VALUES ($1, $2, $3, $4, $5, ARRAY[$6])
+        ON CONFLICT (user_id, uid) DO UPDATE
+        SET encrypted_data =
+            CASE
+                WHEN todos.is_orphaned OR $4 >= todos.last_updated
+                THEN $1
+                ELSE todos.encrypted_data
+            END,
+        nonce =
+            CASE
+                WHEN todos.is_orphaned OR $4 >= todos.last_updated
+                THEN $2
+                ELSE todos.nonce
+            END,
+        last_updated =
+            CASE
+                WHEN todos.is_orphaned OR $4 >= todos.last_updated
+                THEN $4
+                ELSE todos.last_updated
+            END,
+        known_by_devices =
+            CASE
+                WHEN $6 = ANY(todos.known_by_devices)
+                THEN todos.known_by_devices
+                ELSE array_append(todos.known_by_devices, $6)
+            END,
+        is_orphaned = false"#,
+        todo.encrypted_data,
+        todo.nonce,
+        todo.uid,
+        todo.last_updated,
+        user_id,
+        device_refresh_token,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
 pub async fn fetch_orphaned_task_uids(
     pool: &PgPool,
     user_id: i32,
@@ -398,6 +465,24 @@ pub async fn fetch_orphaned_shortcut_uids(
         r#"
         SELECT uid
         FROM shortcuts
+        WHERE user_id = $1 AND is_orphaned = true
+        "#,
+        user_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(records.into_iter().map(|r| r.uid).collect())
+}
+
+pub async fn fetch_orphaned_todo_uids(
+    pool: &PgPool,
+    user_id: i32,
+) -> Result<Vec<String>, Box<dyn Error>> {
+    let records = sqlx::query!(
+        r#"
+        SELECT uid
+        FROM todos
         WHERE user_id = $1 AND is_orphaned = true
         "#,
         user_id
@@ -678,6 +763,38 @@ pub async fn fetch_shortcuts_for_device(
     Ok(shortcuts)
 }
 
+pub async fn fetch_todos_for_device(
+    pool: &PgPool,
+    user_id: i32,
+    device_token: &str,
+    last_sync: i64,
+) -> Result<Vec<EncryptedTodo>, sqlx::Error> {
+    let todos = sqlx::query_as!(
+        EncryptedTodo,
+        r#"
+        SELECT
+            encrypted_data,
+            nonce,
+            uid,
+            last_updated
+        FROM todos
+        WHERE user_id = $1
+        AND (
+            NOT ($2 = ANY(known_by_devices))
+            OR
+            (last_updated > $3)
+        )
+        AND NOT is_orphaned"#,
+        user_id,
+        device_token,
+        last_sync
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(todos)
+}
+
 pub async fn mark_tasks_known(
     pool: &PgPool,
     task_uids: &[String],
@@ -722,6 +839,32 @@ pub async fn mark_shortcuts_known(
         WHERE user_id = $1 AND uid = ANY($2)"#,
         user_id,
         shortcut_uids,
+        device_token,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn mark_todos_known(
+    pool: &PgPool,
+    todo_uids: &[String],
+    user_id: i32,
+    device_token: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE todos
+        SET known_by_devices =
+            CASE
+                WHEN $3 = ANY(known_by_devices)
+                THEN known_by_devices
+                ELSE array_append(known_by_devices, $3)
+            END
+        WHERE user_id = $1 AND uid = ANY($2)"#,
+        user_id,
+        todo_uids,
         device_token,
     )
     .execute(pool)

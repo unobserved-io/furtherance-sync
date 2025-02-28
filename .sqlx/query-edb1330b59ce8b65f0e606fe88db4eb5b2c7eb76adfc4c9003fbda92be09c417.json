@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT uid\n        FROM todos\n        WHERE user_id = $1 AND is_orphaned = true\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "uid",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "edb1330b59ce8b65f0e606fe88db4eb5b2c7eb76adfc4c9003fbda92be09c417"
+}

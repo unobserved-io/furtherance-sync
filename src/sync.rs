@@ -7,7 +7,7 @@
 use crate::{
     database::*,
     middleware::AuthUser,
-    models::{AppState, EncryptedShortcut, EncryptedTask},
+    models::{AppState, EncryptedShortcut, EncryptedTask, EncryptedTodo},
 };
 
 use axum::{
@@ -26,6 +26,7 @@ pub struct SyncRequest {
     device_id: String,
     tasks: Vec<EncryptedTask>,
     shortcuts: Vec<EncryptedShortcut>,
+    todos: Vec<EncryptedTodo>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -33,12 +34,16 @@ struct SyncResponse {
     server_timestamp: i64,
     tasks: Vec<EncryptedTask>,
     shortcuts: Vec<EncryptedShortcut>,
+    todos: Vec<EncryptedTodo>,
     orphaned_tasks: Vec<String>,
     orphaned_shortcuts: Vec<String>,
+    orphaned_todos: Vec<String>,
 }
 
-pub async fn get_orphaned_items(pool: &PgPool, user_id: i32) -> (Vec<String>, Vec<String>) {
-    // Fetch orphaned items from database
+pub async fn get_orphaned_items(
+    pool: &PgPool,
+    user_id: i32,
+) -> (Vec<String>, Vec<String>, Vec<String>) {
     let task_uids = match fetch_orphaned_task_uids(&pool, user_id).await {
         Ok(uids) => uids,
         Err(e) => {
@@ -55,7 +60,15 @@ pub async fn get_orphaned_items(pool: &PgPool, user_id: i32) -> (Vec<String>, Ve
         }
     };
 
-    (task_uids, shortcut_uids)
+    let todo_uids = match fetch_orphaned_todo_uids(&pool, user_id).await {
+        Ok(uids) => uids,
+        Err(e) => {
+            error!("Error fetching orphaned todo UIDs: {}", e);
+            Vec::new()
+        }
+    };
+
+    (task_uids, shortcut_uids, todo_uids)
 }
 
 pub async fn handle_sync(
@@ -63,7 +76,6 @@ pub async fn handle_sync(
     AuthUser(user_id): AuthUser,
     Json(sync_data): Json<SyncRequest>,
 ) -> Response {
-    // Get refresh token for this device
     let refresh_token = match fetch_refresh_token(&state.db, user_id, &sync_data.device_id).await {
         Ok(Some(token)) => token,
         Ok(None) => return StatusCode::UNAUTHORIZED.into_response(),
@@ -75,18 +87,22 @@ pub async fn handle_sync(
 
     let server_timestamp = time::OffsetDateTime::now_utc().unix_timestamp();
 
-    // Process incoming tasks
     for encrypted_task in &sync_data.tasks {
         if let Err(e) = insert_task(&state.db, encrypted_task, user_id, &refresh_token).await {
             error!("Error processing task: {}", e);
         }
     }
 
-    // Process incoming shortcuts
     for encrypted_shortcut in &sync_data.shortcuts {
         if let Err(e) =
             insert_shortcut(&state.db, encrypted_shortcut, user_id, &refresh_token).await
         {
+            error!("Error processing shortcut: {}", e);
+        }
+    }
+
+    for encrypted_todo in &sync_data.todos {
+        if let Err(e) = insert_todo(&state.db, encrypted_todo, user_id, &refresh_token).await {
             error!("Error processing shortcut: {}", e);
         }
     }
@@ -113,8 +129,19 @@ pub async fn handle_sync(
             }
         };
 
+    let todos_to_send =
+        match fetch_todos_for_device(&state.db, user_id, &refresh_token, sync_data.last_sync).await
+        {
+            Ok(todos) => todos,
+            Err(e) => {
+                error!("Error fetching todos: {}", e);
+                Vec::new()
+            }
+        };
+
     // Get orphaned items
-    let (orphaned_tasks, orphaned_shortcuts) = get_orphaned_items(&state.db, user_id).await;
+    let (orphaned_tasks, orphaned_shortcuts, orphaned_todos) =
+        get_orphaned_items(&state.db, user_id).await;
 
     // Mark sent items as known by this device
     if !tasks_to_send.is_empty() {
@@ -133,12 +160,21 @@ pub async fn handle_sync(
         }
     }
 
+    if !todos_to_send.is_empty() {
+        let todo_uids: Vec<String> = todos_to_send.iter().map(|t| t.uid.clone()).collect();
+        if let Err(e) = mark_todos_known(&state.db, &todo_uids, user_id, &refresh_token).await {
+            error!("Error marking todos as known: {}", e);
+        }
+    }
+
     let response = SyncResponse {
         server_timestamp,
         tasks: tasks_to_send,
         shortcuts: shortcuts_to_send,
+        todos: todos_to_send,
         orphaned_tasks,
         orphaned_shortcuts,
+        orphaned_todos,
     };
 
     Json(response).into_response()
