@@ -103,7 +103,7 @@ pub async fn handle_sync(
 
     for encrypted_todo in &sync_data.todos {
         if let Err(e) = insert_todo(&state.db, encrypted_todo, user_id, &refresh_token).await {
-            error!("Error processing shortcut: {}", e);
+            error!("Error processing todo: {}", e);
         }
     }
 
