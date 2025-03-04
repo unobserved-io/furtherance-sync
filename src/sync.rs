@@ -26,7 +26,8 @@ pub struct SyncRequest {
     device_id: String,
     tasks: Vec<EncryptedTask>,
     shortcuts: Vec<EncryptedShortcut>,
-    todos: Vec<EncryptedTodo>,
+    #[serde(default)] // Optional to allow backwards compatability
+    todos: Option<Vec<EncryptedTodo>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -34,10 +35,12 @@ struct SyncResponse {
     server_timestamp: i64,
     tasks: Vec<EncryptedTask>,
     shortcuts: Vec<EncryptedShortcut>,
-    todos: Vec<EncryptedTodo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    todos: Option<Vec<EncryptedTodo>>,
     orphaned_tasks: Vec<String>,
     orphaned_shortcuts: Vec<String>,
-    orphaned_todos: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    orphaned_todos: Option<Vec<String>>,
 }
 
 pub async fn get_orphaned_items(
@@ -101,9 +104,11 @@ pub async fn handle_sync(
         }
     }
 
-    for encrypted_todo in &sync_data.todos {
-        if let Err(e) = insert_todo(&state.db, encrypted_todo, user_id, &refresh_token).await {
-            error!("Error processing todo: {}", e);
+    if let Some(encrypted_todos) = &sync_data.todos {
+        for encrypted_todo in encrypted_todos {
+            if let Err(e) = insert_todo(&state.db, encrypted_todo, user_id, &refresh_token).await {
+                error!("Error processing todo: {}", e);
+            }
         }
     }
 
@@ -129,19 +134,27 @@ pub async fn handle_sync(
             }
         };
 
-    let todos_to_send =
+    let todos_to_send = if sync_data.todos.is_some() {
         match fetch_todos_for_device(&state.db, user_id, &refresh_token, sync_data.last_sync).await
         {
-            Ok(todos) => todos,
+            Ok(todos) => Some(todos),
             Err(e) => {
                 error!("Error fetching todos: {}", e);
-                Vec::new()
+                Some(Vec::new())
             }
-        };
+        }
+    } else {
+        None
+    };
 
     // Get orphaned items
-    let (orphaned_tasks, orphaned_shortcuts, orphaned_todos) =
-        get_orphaned_items(&state.db, user_id).await;
+    let (orphaned_tasks, orphaned_shortcuts, orphaned_todos) = if sync_data.todos.is_some() {
+        let (tasks, shortcuts, todos) = get_orphaned_items(&state.db, user_id).await;
+        (tasks, shortcuts, Some(todos))
+    } else {
+        let (tasks, shortcuts, _) = get_orphaned_items(&state.db, user_id).await;
+        (tasks, shortcuts, None)
+    };
 
     // Mark sent items as known by this device
     if !tasks_to_send.is_empty() {
@@ -160,10 +173,12 @@ pub async fn handle_sync(
         }
     }
 
-    if !todos_to_send.is_empty() {
-        let todo_uids: Vec<String> = todos_to_send.iter().map(|t| t.uid.clone()).collect();
-        if let Err(e) = mark_todos_known(&state.db, &todo_uids, user_id, &refresh_token).await {
-            error!("Error marking todos as known: {}", e);
+    if let Some(todos) = &todos_to_send {
+        if !todos.is_empty() {
+            let todo_uids: Vec<String> = todos.iter().map(|t| t.uid.clone()).collect();
+            if let Err(e) = mark_todos_known(&state.db, &todo_uids, user_id, &refresh_token).await {
+                error!("Error marking todos as known: {}", e);
+            }
         }
     }
 
