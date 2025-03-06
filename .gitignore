@@ -1,3 +1,4 @@
 /target
 fur_sync.db
 /.cargo
+.DS_Store
