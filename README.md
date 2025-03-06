@@ -46,7 +46,7 @@ If you prefer to self-host Furtherance Sync but would still like to contribute t
 Thank you so much for your contribution! I truly appreciate it.
 
 ### License
-This project is licensed under the Elastic License 2.0. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU Affero General Public License v3.0. See the [LICENSE](LICENSE) file for details.
 
 ### Author
 This project is created and maintained by [Ricky Kresslein](https://kressle.in) under [Unobserved](https://unobserved.io). More information at [Furtherance.app](https://furtherance.app/sync).

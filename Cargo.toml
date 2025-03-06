@@ -2,7 +2,7 @@
 name = "furtherance-sync"
 version = "1.0.0"
 edition = "2021"
-license = "Elastic-2.0"
+license = "AGPL-3.0-or-later"
 
 [features]
 default = ["self-hosted"]
